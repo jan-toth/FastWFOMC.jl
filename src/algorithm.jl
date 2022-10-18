@@ -52,9 +52,9 @@ function compute_wfomc_ccs(wfomc::WFOMC{T}, ccs::Vector{CardinalityConstraint}, 
 
     wmc_poly = compute_wfomc_fo2(WFOMC(formula(wfomc), domsize(wfomc), w⁺), algo)
     @assert isone(denominator(wmc_poly))
-    wmc_poly = numerator(wmc_poly)
 
-    return coeff(wmc_poly, vars, exponents)
+    result = coeff(numerator(wmc_poly), vars, exponents) |> constant_coefficient
+    return convert(T, result)
 end
 
 
