@@ -650,7 +650,7 @@ end
 
 function proposition_symbols(e::Expression)
     if (is_logic_proposition_symbol(e.operator))
-        return [e]
+        return Set([e])
     else
         symbols::Set{Expression} = Set{Expression}()
         for argument in e.arguments

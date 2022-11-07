@@ -60,6 +60,11 @@ end
 
 function compute_wfomc_fo2(wfomc::WFOMC, ::NoOptFastWFOMCAlgorithm)
     cell_graph = build_cell_graph(formula(wfomc), weights(wfomc))
+    if cell_graph === nothing
+        return zero(wfomc)
+    end
+
+
     ncells = length(cell_graph.cells)
     ncells > 0 || return zero(wfomc)
 
@@ -89,6 +94,9 @@ function compute_wfomc_fo2(wfomc::WFOMC, ::FastWFOMCAlgorithm)
     pt = PascalTriangle(domsize(wfomc))
 
     collapsed_graph = build_collapsed_cell_graph(formula(wfomc), weights(wfomc))
+    if collapsed_graph === nothing
+        return zero(wfomc)
+    end
     ncliques = length(collapsed_graph.cliques)
 
     g = Graph(ncliques)

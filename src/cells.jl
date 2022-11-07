@@ -97,6 +97,9 @@ The cell graph is represented as a named tuple containing:
 """
 function build_cell_graph(ψ::Formula, weights::WFOMCWeights)
     cells = build_valid_cells(ψ)
+    if length(cells) == 0
+        return nothing
+    end
 
     w = compute_cell_weights(weights, cells)
     R = compute_cell_interactions(ψ, weights, cells)
@@ -229,6 +232,10 @@ See also: [`build_cell_graph`](@ref), [`find_symmetric_cliques`](@ref)
 """
 function build_collapsed_cell_graph(ψ::Formula, weights::WFOMCWeights)
     cell_graph = build_cell_graph(ψ, weights)
+    if cell_graph === nothing
+        return nothing
+    end
+
     return collapse_cell_graph(cell_graph)
 end
 
