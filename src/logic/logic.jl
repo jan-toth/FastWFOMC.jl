@@ -11,6 +11,12 @@ TRUE = Formula("TRUE")
 FALSE = Formula("FALSE")
 
 
+function is_satisfiable(ψ::Formula)
+    sat = dpll_satisfiable(ψ)
+    return sat !== false
+end
+
+
 """
     PartialModel
 
