@@ -129,7 +129,7 @@ function compute_cell_interactions(ψ::Formula, weights::WFOMCWeights, cells)
     ncells = length(cells)
 
     R = zeros(weights, ncells, ncells)
-    φ = ψ & substitute(Dict(Formula("x") => Formula("y"), Formula("y") => Formula("x")), ψ) 
+    φ = ψ & substitute(Dict(Formula("x") => Formula("y"), Formula("y") => Formula("x")), ψ)
     for i in 1:ncells
         cellY = substitute(substitution, xcells_cache[i])
         ψᵢ = φ & cellY
