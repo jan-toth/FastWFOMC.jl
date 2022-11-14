@@ -172,7 +172,7 @@ function find_symmetric_cliques(cell_graph)
     cell_indices = Set(eachindex(cell_graph.cells))
     while length(cell_indices) > 0
         cell_idx = pop!(cell_indices)
-        clique = (indices=Set([cell_idx]), w=cell_graph.w[cell_idx], s=cell_graph.R[cell_idx, cell_idx], r=one(cell_graph.w[cell_idx]))
+        clique = (indices=Set(cell_idx), w=cell_graph.w[cell_idx], s=cell_graph.R[cell_idx, cell_idx], r=one(cell_graph.w[cell_idx]))
 
         for cell_idx in cell_indices
             if _is_clique_compatible(cell_idx, clique, cell_graph)
@@ -185,7 +185,14 @@ function find_symmetric_cliques(cell_graph)
             clique = (clique.indices, clique.w, clique.s, r=cell_graph.R[first(clique.indices, 2)...])
         end
 
-        push!(cliques, clique)
+        if iszero(clique.r)
+            # if the r-value is zero, then do not form the clique
+            for idx in clique.indices
+                push!(cliques, (indices=Set(idx), clique.w, clique.s, r=one(clique.r)))
+            end
+        else
+            push!(cliques, clique)
+        end
     end
 
     return cliques
