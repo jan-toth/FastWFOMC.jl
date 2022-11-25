@@ -1,4 +1,4 @@
-ψ = expr(
+ψ = parse_formula(
     "~E(x, x) & " *
     "(~E(x, y) | E(y, x))"
 )
