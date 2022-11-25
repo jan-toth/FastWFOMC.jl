@@ -53,9 +53,9 @@ Base.one(wfomc::WFOMC) = one(weights(wfomc))
 Base.ones(wfomc::WFOMC, dims...) = ones(weights(wfomc), dims...)
 
 function _check_weights(weights::WFOMCWeights{T}, ψ::Expression) where {T}
-    for (symbol, _) in predicate_symbols(ψ)
-        if !haskey(weights, symbol)
-            @warn "Weights unset for symbol \"$symbol\"."
+    for pred in predicate_symbols(ψ)
+        if !haskey(weights, pred)
+            @warn "Weights unset for symbol \'$pred\'."
             return false
         end
     end

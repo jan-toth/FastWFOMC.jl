@@ -14,7 +14,7 @@ function _wmc_with_evidence(ψ::Expression, weights::WFOMCWeights, evidence)
 
         for (symbol, value) in model
             if symbol ∉ evidence
-                model_weight *= weights[symbol.operator][value ? 1 : 2]
+                model_weight *= weights[(symbol.operator, length(symbol.arguments))][value ? 1 : 2]
             end
         end
 

@@ -4,7 +4,7 @@ using .aimalogic
 const Formula = Expression
 const parse_formula = expr
 const Variable(name::String) = Formula(name)
-const Predicate = String
+const Predicate = Tuple{String,Int}
 
 
 TRUE = Formula("TRUE")
@@ -14,6 +14,15 @@ FALSE = Formula("FALSE")
 function is_satisfiable(ψ::Formula)
     sat = dpll_satisfiable(ψ)
     return sat !== false
+end
+
+function replace_subformula(ψ::Formula, d::Dict{Predicate, Formula})
+    pred = (ψ.operator, length(ψ.arguments))
+    if haskey(d, pred)
+        return d[pred]
+    else
+        return Formula(ψ.operator, [replace_subformula(arg, d) for arg in ψ.arguments]...)
+    end
 end
 
 
@@ -83,7 +92,7 @@ function find_all_models(ψ::Formula)
         push!(models, PartialModel(model, setdiff(symbols_set, keys(model))))
 
         # add negation of the found model to the clauses of ψ
-        push!(clauses, reduce(|, (value ? ~symbol : symbol for (symbol, value) in model)))
+        push!(clauses, reduce(|, (value ? ~symbol : symbol for (symbol, value) in model); init=FALSE))
     end
 
     return ModelIterator(models)

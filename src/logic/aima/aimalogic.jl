@@ -1895,7 +1895,7 @@ function constant_symbols(e::Expression)
 end
 
 function predicate_symbols(e::Expression)
-    if (length(e.arguments) == 0)
+    if (length(e.arguments) == 0 && !is_logic_proposition_symbol(e.operator))
         return Set()
     end
     local predicate_set::Set

@@ -17,14 +17,23 @@ If `weights` are not provided, they are all set to `1`.
 1. `algo` - algorithm to be used.
 2. `ccs` - list of cardinality constraints for some of the predicates in the formula `ψ`.
 """
-function compute_wfomc(ψ::Formula, domainsize::Integer, weights::WFOMCWeights; ccs=CardinalityConstraint[], algo=FastWFOMCAlgorithm())
-    wfomc = WFOMC(ψ, domainsize, weights)
+function compute_wfomc(ψ::Formula, domainsize::Integer, weights::WFOMCWeights; kwargs...)
+    props = filter(x -> x[2] == 0, predicate_symbols(ψ))
+    length(props) == 0 && return _compute_wfomc_once(ψ, domainsize, weights; kwargs...)
 
-    if isempty(ccs)
-        compute_wfomc_fo2(wfomc, algo)
-    else
-        compute_wfomc_ccs(WFOMC(ψ, domainsize, weights), ccs, algo)
+    total = zero(weights)
+    # TODO multithreading
+    for valuation in Iterators.product(Iterators.repeat([TRUE, FALSE], length(props)))
+        subs = Dict(pred => val for pred in props, val in valuation)
+        
+        ϕ = replace_subformula(ψ, subs)
+        count = _compute_wfomc_once(ϕ, domainsize, weights; kwargs...)
+
+        multiplier = prod(weights[pred][val == TRUE ? 1 : 2] for (pred, val) in pairs(subs); init=one(weights))
+        total += multiplier * count
     end
+
+    return total
 end
 
 
@@ -34,6 +43,16 @@ function compute_wfomc(ψ::Formula, domainsize::Integer; kwargs...)
 
     fill_missing_weights!(weights, ψ)
     compute_wfomc(ψ, domainsize, weights; kwargs...)
+end
+
+function _compute_wfomc_once(ψ::Formula, domainsize::Integer, weights::WFOMCWeights; ccs=CardinalityConstraint[], algo=FastWFOMCAlgorithm())
+    wfomc = WFOMC(ψ, domainsize, weights)
+
+    if isempty(ccs)
+        return compute_wfomc_fo2(wfomc, algo)
+    else
+        return compute_wfomc_ccs(WFOMC(ψ, domainsize, weights), ccs, algo)
+    end
 end
 
 function compute_wfomc_ccs(wfomc::WFOMC{T}, ccs::Vector{CardinalityConstraint}, algo::WFOMCAlgorithm) where {T <: Union{Number, fmpz, fmpq}}
@@ -59,6 +78,8 @@ end
 
 
 function compute_wfomc_fo2(wfomc::WFOMC, ::NoOptFastWFOMCAlgorithm)
+    # error("NoOpt FastWFOMC unsupported for now")
+
     cell_graph = build_cell_graph(formula(wfomc), weights(wfomc))
     if cell_graph === nothing
         return zero(wfomc)
@@ -129,7 +150,7 @@ function compute_wfomc_fo2(wfomc::WFOMC, ::FastWFOMCAlgorithm)
 
     @debug "Cache status" Cache=CACHE
     
-    return result
+    return result 
 end
 
 

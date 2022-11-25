@@ -112,7 +112,7 @@ function compute_cell_weights(weights::WFOMCWeights, cells)
     for (k, cell) in enumerate(cells)
         wmc = one(weights)
         for (symbol, value) in zip(cell.atoms, cell.interpretation)
-            wmc *= weights[symbol.operator][value ? 1 : 2]
+            wmc *= weights[(symbol.operator, length(symbol.arguments))][value ? 1 : 2]
         end
         w[k] = wmc
     end

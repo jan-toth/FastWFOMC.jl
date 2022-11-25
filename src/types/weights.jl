@@ -61,9 +61,9 @@ in `weights`, to `val`.
 If `val` is unset, it defaults to one.
 """
 function fill_missing_weights!(weights::WFOMCWeights{T}, ψ::Formula, val::T = one(weights)) where {T}
-    for (symbol, _) in predicate_symbols(ψ)
-        if !haskey(weights, symbol)
-            weights[symbol] = PredicateWeights(val, val)
+    for predicate in predicate_symbols(ψ)
+        if !haskey(weights, predicate)
+            weights[predicate] = PredicateWeights(val, val)
         end
     end
 end
