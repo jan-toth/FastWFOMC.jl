@@ -287,3 +287,51 @@ function collapse_cell_graph(cell_graph)
     R = Symmetric(R, 'L')
     return (cells=cell_graph.cells, cliques, R)
 end
+
+
+"""
+    get_cell_graph(ψ::AbstractString)
+
+Given a string describing a formula, return serialized cell graph of the formula
+for unitary weights (1, 1) for all the occuring predicates except for those assumed to be Skolem predicates.
+Predicates starting with 'S' are assumed to be Skolem predicates and their weights are set to (1,-1).
+"""
+function get_cell_graph(ψ::AbstractString)
+    φ = parse_formula(ψ)
+    weights = WFOMCWeights{BigInt}()
+    
+    _set_skolem_weights!(weights, φ)
+    fill_missing_weights!(weights, φ)
+
+    cells, R, w = build_cell_graph(φ, weights)
+    cell_names = ['x' * "$i" for i in eachindex(cells)]
+
+    loops = ["L($name, $rii, $wi)" for (name, rii, wi) in zip(cell_names, R[CartesianIndex.(axes(R)...)], w)]
+    edges = ["E($(cell_names[i]), $(cell_names[j]), $(R[i, j]))" for i in 1:length(cells) for j in (i+1):length(cells)]
+
+    str = ""
+    if length(loops) > 0
+        str *= join(loops, ", ")
+
+        if length(edges) > 0
+            str *= ", " * join(edges, ", ")
+        end
+    end
+
+    return str
+end
+
+
+function _set_skolem_weights!(weights::WFOMCWeights, ψ::Formula)
+    pred = (ψ.operator, length(ψ.arguments))
+    WFOMC
+    if is_logic_proposition_symbol(ψ.operator)
+        if startswith(pred[1], "S")
+            weights[pred] = (1, -1)
+        end
+    else
+        for arg in ψ.arguments
+            _set_skolem_weights!(weights, arg)
+        end
+    end
+end
