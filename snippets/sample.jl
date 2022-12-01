@@ -15,5 +15,5 @@ Pkg.instantiate()
 
 using FastWFOMC
 
-cell_graph = get_cell_graph("(~B0(x, x) | S0)")
+cell_graph = get_cell_graph("(~B0(x, y) | S0(x))")
 println(cell_graph)
