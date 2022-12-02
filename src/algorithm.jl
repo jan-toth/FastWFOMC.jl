@@ -23,8 +23,8 @@ function compute_wfomc(ψ::Formula, domainsize::Integer, weights::WFOMCWeights; 
 
     total = zero(weights)
     # TODO multithreading
-    for valuation in Iterators.product(Iterators.repeat([TRUE, FALSE], length(props)))
-        subs = Dict(pred => val for pred in props, val in valuation)
+    for valuation in Iterators.product(ntuple(i -> (TRUE, FALSE), length(props))...)
+        subs = Dict(pred => val for (pred, val) in zip(props, valuation))
         
         ϕ = replace_subformula(ψ, subs)
         count = _compute_wfomc_once(ϕ, domainsize, weights; kwargs...)

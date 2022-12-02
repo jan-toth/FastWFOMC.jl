@@ -321,12 +321,11 @@ function get_cell_graph(ψ::AbstractString)
     end
 
     cgs = []
-    for valuation in Iterators.product(Iterators.repeat([TRUE, FALSE], length(props)))
-        subs = Dict(pred => val for pred in props, val in valuation)
+    for valuation in Iterators.product(ntuple(i -> (TRUE, FALSE), length(props))...)
+        subs = Dict(pred => val for (pred, val) in zip(props, valuation))
         multiplier = prod(weights[pred][val == TRUE ? 1 : 2] for (pred, val) in pairs(subs); init=one(weights))
 
         cg = _get_one_cell_graph(replace_subformula(φ, subs), weights)
-        
         push!(cgs, "W($multiplier), " * cg)
     end
     
