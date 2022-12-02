@@ -326,6 +326,7 @@ function get_cell_graph(ψ::AbstractString)
         multiplier = prod(weights[pred][val == TRUE ? 1 : 2] for (pred, val) in pairs(subs); init=one(weights))
 
         cg = _get_one_cell_graph(replace_subformula(φ, subs), weights)
+        cg === nothing && continue
         push!(cgs, "W($multiplier), " * cg)
     end
     
@@ -333,7 +334,10 @@ function get_cell_graph(ψ::AbstractString)
 end
 
 function _get_one_cell_graph(φ::Formula, weights::WFOMCWeights)
-    cells, R, w = build_cell_graph(φ, weights)
+    cg = build_cell_graph(φ, weights)
+    cg === nothing && return nothing
+    
+    cells, R, w = cg
     cell_names = ['x' * "$(i)" for i in eachindex(cells)]
 
     loops = ["L($name, $rii, $wi)" for (name, rii, wi) in zip(cell_names, R[CartesianIndex.(axes(R)...)], w)]
