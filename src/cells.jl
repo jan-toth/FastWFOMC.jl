@@ -298,13 +298,44 @@ Predicates starting with 'S' are assumed to be Skolem predicates and their weigh
 """
 function get_cell_graph(ψ::AbstractString)
     φ = parse_formula(ψ)
-    weights = WFOMCWeights{BigInt}()
     
-    _set_skolem_weights!(weights, φ)
-    fill_missing_weights!(weights, φ)
+    weights = WFOMCWeights{BigInt}()
+    props = []
 
+    for pred in predicate_symbols(φ)
+        if pred[2] == 0
+            # 0-arity predicate
+            push!(props, pred)
+        end
+        
+        if startswith(pred[1], "S")
+            weights[pred] = (1, -1)
+        else
+            weights[pred] = (1, 1)
+        end
+    end
+
+    if length(props) == 0
+        cg = "W(1), " * _get_one_cell_graph(φ, weights)
+        return "[" * cg * "]"
+    end
+
+    cgs = []
+    for valuation in Iterators.product(Iterators.repeat([TRUE, FALSE], length(props)))
+        subs = Dict(pred => val for pred in props, val in valuation)
+        multiplier = prod(weights[pred][val == TRUE ? 1 : 2] for (pred, val) in pairs(subs); init=one(weights))
+
+        cg = _get_one_cell_graph(replace_subformula(φ, subs), weights)
+        
+        push!(cgs, "W($multiplier), " * cg)
+    end
+    
+    return "[" * join(cgs, "; ") * "]"
+end
+
+function _get_one_cell_graph(φ::Formula, weights::WFOMCWeights)
     cells, R, w = build_cell_graph(φ, weights)
-    cell_names = ['x' * "$i" for i in eachindex(cells)]
+    cell_names = ['x' * "$(i)" for i in eachindex(cells)]
 
     loops = ["L($name, $rii, $wi)" for (name, rii, wi) in zip(cell_names, R[CartesianIndex.(axes(R)...)], w)]
     edges = ["E($(cell_names[i]), $(cell_names[j]), $(R[i, j]))" for i in 1:length(cells) for j in (i+1):length(cells)]
@@ -319,19 +350,5 @@ function get_cell_graph(ψ::AbstractString)
     end
 
     return str
-end
 
-
-function _set_skolem_weights!(weights::WFOMCWeights, ψ::Formula)
-    pred = (ψ.operator, length(ψ.arguments))
-    WFOMC
-    if is_logic_proposition_symbol(ψ.operator)
-        if startswith(pred[1], "S")
-            weights[pred] = (1, -1)
-        end
-    else
-        for arg in ψ.arguments
-            _set_skolem_weights!(weights, arg)
-        end
-    end
 end
