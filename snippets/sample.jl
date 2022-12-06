@@ -1,7 +1,7 @@
-# using Pkg
+using Pkg
 
 # # Use current folder as a Julia project
-# Pkg.activate(".")
+Pkg.activate(".")
 
 # # Add FastWFOMC.jl dependency to the current Julia project
 # Pkg.add(PackageSpec(url="https://github.com/jan-toth/FastWFOMC.jl"))
@@ -11,6 +11,13 @@
 
 using FastWFOMC
 
-sentence = ARGS[1]
-cell_graph = get_cell_graph(sentence)
-println(cell_graph)
+open(ARGS[1]) do fr
+    for line in readlines(fr)
+        startswith(line, '#') && continue
+        cell_graph = get_cell_graph(line)
+        println(cell_graph)
+    end
+end
+
+
+
