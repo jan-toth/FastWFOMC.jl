@@ -297,9 +297,22 @@ for unitary weights (1, 1) for all the occuring predicates except for those assu
 Predicates starting with 'S' are assumed to be Skolem predicates and their weights are set to (1,-1).
 """
 function get_cell_graph(ψ::AbstractString)
-    φ = parse_formula(ψ)
-    
-    weights = WFOMCWeights{BigInt}()
+    # φ = parse_formula(ψ)
+    skolem = skolemize_theory(ψ)
+
+    φ = reduce(&, skolem[1])
+    weights = skolem[2]
+    for pred in predicate_symbols(φ)
+        haskey(weights, pred) && continue
+        weights[pred] = (1, 1)
+    end
+
+
+    ccs = skolem[3]
+
+    isempty(ccs) || return _get_symbolic_cell_graph(φ, weights, ccs)
+        
+    weights = WFOMCWeights{BigInt}(weights)
     props = []
 
     for pred in predicate_symbols(φ)
@@ -334,15 +347,66 @@ function get_cell_graph(ψ::AbstractString)
     return "[" * join(cgs, "; ") * "]"
 end
 
+function _get_symbolic_cell_graph(φ, weights, ccs)
+
+    ring, vars = PolynomialRing(QQ, length(ccs))
+
+    w⁺ = WFOMCWeights{fmpq_mpoly}()
+    for (pred, (w, w̄)) in weights
+        w⁺[pred] = PredicateWeights(ring(w), ring(w̄))
+    end
+
+    for (i, (xᵢ, cc)) in enumerate(zip(vars, ccs))
+        w⁺[cc.pred] = PredicateWeights(xᵢ, one(ring))
+    end
+
+
+    weights = w⁺
+    props = []
+
+    for pred in predicate_symbols(φ)
+        if pred[2] == 0
+            # 0-arity predicate
+            push!(props, pred)
+        end
+        
+        if startswith(pred[1], "S")
+            weights[pred] = (ring(1), ring(-1))
+        else
+            weights[pred] = (ring(1), ring(1))
+        end
+
+        if length(props) == 0
+            cg = _get_one_cell_graph(φ, weights)
+            cg === nothing && return "[]"
+            return "[W(1)," * cg * "]"
+        end
+
+        cgs = []
+        for valuation in Iterators.product(ntuple(i -> (TRUE, FALSE), length(props))...)
+            subs = Dict(pred => val for (pred, val) in zip(props, valuation))
+            multiplier = prod(weights[pred][val == TRUE ? 1 : 2] for (pred, val) in pairs(subs); init=one(weights))
+
+            cg = _get_one_cell_graph(replace_subformula(φ, subs), weights)
+            cg === nothing && continue
+            push!(cgs, "W($multiplier), " * cg)
+        end
+
+        return "[" * join(cgs, "; ") * "]"
+    end
+end
+
 function _get_one_cell_graph(φ::Formula, weights::WFOMCWeights)
     cg = build_cell_graph(φ, weights)
     cg === nothing && return nothing
     
     cells, R, w = cg
-    cell_names = ['x' * "$(i)" for i in eachindex(cells)]
+    cell_names = ['n' * "$(i)" for i in eachindex(cells)]
 
-    loops = ["L($name, $rii, $wi)" for (name, rii, wi) in zip(cell_names, R[CartesianIndex.(axes(R)...)], w)]
-    edges = ["E($(cell_names[i]), $(cell_names[j]), $(R[i, j]))" for i in 1:length(cells) for j in (i+1):length(cells)]
+    loops = ["L($name, $(_fmpq2string(rii)), $(_fmpq2string(wi)))" for (name, rii, wi) in zip(cell_names, R[CartesianIndex.(axes(R)...)], w)]
+    edges = ["E($(cell_names[i]), $(cell_names[j]), $(_fmpq2string(R[i, j])))" for i in 1:length(cells) for j in (i+1):length(cells)]
+    # loops = ["L($name, $((rii)), $((wi)))" for (name, rii, wi) in zip(cell_names, R[CartesianIndex.(axes(R)...)], w)]
+    # edges = ["E($(cell_names[i]), $(cell_names[j]), $((R[i, j])))" for i in 1:length(cells) for j in (i+1):length(cells)]
 
     str = ""
     if length(loops) > 0
@@ -356,3 +420,61 @@ function _get_one_cell_graph(φ::Formula, weights::WFOMCWeights)
     return str
 
 end
+
+function _fmpq2string(poly)
+    if isconstant(poly)
+        return string(poly)
+    else
+        return "'" * string(poly) * "'"
+    end
+end
+
+# function _fmpq2string(poly)
+#     ts = []
+#     for t in terms(poly)
+#         strs = split(string(t), " + ")
+        
+
+#         for str in strs
+#             push!(ts, _process_term(str))
+#         end
+#     end
+
+#     return join(ts, " + ")
+# end
+
+# function _process_term(term)
+#     factors = []
+#     strs = split(term, "*")
+
+#     if isdigit(strs[1] |> first)
+#         push!(factors, strs[1])
+#     else
+#         push!(factors, _process_var(strs[1]))
+#     end
+    
+#     if length(strs) > 1
+#         for str in strs[2:end]
+#             push!(factors, _process_var(str))
+#         end
+#     end
+    
+#     return join(factors, "*")
+# end
+
+# function _process_var(var)
+#     if startswith(var, '-')
+#         pre = "-"
+#         var = var[2:end]
+#     else
+#         pre = ""
+#     end
+
+#     spl = split(var, '^')
+#     if length(spl) > 1
+#         x, power = spl
+#         return pre * "'" * x * "'" * "^" * power
+#     else
+#         return pre * "'" * var * "'"
+#     end
+# end

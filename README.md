@@ -1,6 +1,6 @@
 # Fast WFOMC
 
-Implementation of FastWFOMC algorithm (https://ida.fel.cvut.cz/~kuzelka/pubs/van-bremen_535.pdf) in pure Julia for C2 (FO2 + couting qunatifiers).
+Implementation of FastWFOMC algorithm (https://ida.fel.cvut.cz/~kuzelka/pubs/van-bremen_535.pdf) in pure Julia for C2 (FO2 + counting quantifiers).
 See also https://jair.org/index.php/jair/article/view/12320/26673.
 
 The implementation does not perform knowledge compilation since [dsharp](https://github.com/QuMuLab/dsharp) is not platform-independent.

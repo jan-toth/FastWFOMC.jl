@@ -7,6 +7,32 @@ struct NoOptFastWFOMCAlgorithm <: WFOMCAlgorithm end
 """Algorithm for WFOMC computation using all optimizations."""
 struct FastWFOMCAlgorithm <: WFOMCAlgorithm end
 
+
+
+function compute_wfomc_unskolemized(ψ::AbstractString, domainsize::Integer, weights=WFOMCWeights(); ccs=CardinalityConstraint[])
+    Γ, weights, cc_templates, denom_templates, ks = skolemize_theory(ψ, weights)
+
+    for k in ks
+        k > domainsize && return zero(weights)
+    end
+    weights = WFOMCWeights{Rational{BigInt}}(weights)
+
+    for cct in cc_templates
+        push!(ccs, cct(domainsize))
+    end
+
+    denominator = big"1"//1
+    for divt in denom_templates
+        denominator *= divt(domainsize)
+    end
+
+    ψ = reduce(&, Γ)
+    fill_missing_weights!(weights, ψ)
+
+    wfomc = compute_wfomc(ψ, domainsize, weights; ccs)
+    return wfomc // denominator
+end
+
 """
     compute_wfomc(ψ::Formula, domainsize::Integer [, weights::WFOMCWeights]; kwargs...)
 
@@ -70,9 +96,16 @@ function compute_wfomc_ccs(wfomc::WFOMC{T}, ccs::Vector{CardinalityConstraint}, 
     end
 
     wmc_poly = compute_wfomc_fo2(WFOMC(formula(wfomc), domsize(wfomc), w⁺), algo)
-    @assert isone(denominator(wmc_poly))
+    wmc_poly == 0 && return zero(T)
 
-    result = coeff(numerator(wmc_poly), vars, exponents) |> constant_coefficient
+    @assert isone(denominator(wmc_poly))
+    result = nothing
+    try
+        result = coeff(numerator(wmc_poly), vars, exponents) |> constant_coefficient  
+    catch MethodError
+        result = coeff(wmc_poly, vars, exponents) |> constant_coefficient
+    end
+    
     return convert(T, result)
 end
 
@@ -240,7 +273,6 @@ function _gterm(p, N, partitions; domsize, ccg, icg, pt = nothing)
             
             for j in icg.nonind
                 jpos = icg.nonind_ordering[j]
-                # println(j, " ", clique_idx)
                 term *= ccg.R[j, clique_idx]^(partitions[jpos] * nₖ₊ₚ)
             end
 
