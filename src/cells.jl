@@ -316,8 +316,9 @@ function get_cell_graph(ψ::AbstractString)
     end
 
     if length(props) == 0
-        cg = "W(1), " * _get_one_cell_graph(φ, weights)
-        return "[" * cg * "]"
+        cg = _get_one_cell_graph(φ, weights)
+        cg === nothing && return "[]"
+        return "[W(1)," * cg * "]"
     end
 
     cgs = []

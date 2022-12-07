@@ -1,7 +1,7 @@
 using Pkg
 
 # # Use current folder as a Julia project
-Pkg.activate(".")
+Pkg.activate("."; io=devnull)
 
 # # Add FastWFOMC.jl dependency to the current Julia project
 # Pkg.add(PackageSpec(url="https://github.com/jan-toth/FastWFOMC.jl"))
