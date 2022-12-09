@@ -4,6 +4,7 @@ using LightGraphs
 using Nemo
 
 import LinearAlgebra
+using Pkg
 
 include("utils/utils.jl")
 using .utils
@@ -19,5 +20,9 @@ include("types/types.jl")
 include("cells.jl")
 include("wmc.jl")
 include("algorithm.jl")
+
+function get_version()
+    return string(Pkg.project().version)
+end
 
 end # module
