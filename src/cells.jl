@@ -377,7 +377,7 @@ function _get_symbolic_cell_graph(φ, weights, ccs)
         end
 
         if length(props) == 0
-            cg = _get_one_cell_graph(φ, weights)
+            cg = _get_one_symbolic_cell_graph(φ, weights)
             cg === nothing && return "[]"
             return "[W(1)," * cg * "]"
         end
@@ -387,7 +387,7 @@ function _get_symbolic_cell_graph(φ, weights, ccs)
             subs = Dict(pred => val for (pred, val) in zip(props, valuation))
             multiplier = prod(weights[pred][val == TRUE ? 1 : 2] for (pred, val) in pairs(subs); init=one(weights))
 
-            cg = _get_one_cell_graph(replace_subformula(φ, subs), weights)
+            cg = _get_one_symbolic_cell_graph(replace_subformula(φ, subs), weights)
             cg === nothing && continue
             push!(cgs, "W($multiplier), " * cg)
         end
@@ -397,6 +397,31 @@ function _get_symbolic_cell_graph(φ, weights, ccs)
 end
 
 function _get_one_cell_graph(φ::Formula, weights::WFOMCWeights)
+    cg = build_cell_graph(φ, weights)
+    cg === nothing && return nothing
+    
+    cells, R, w = cg
+    cell_names = ['n' * "$(i)" for i in eachindex(cells)]
+
+    loops = ["L($name, $(rii), $(wi))" for (name, rii, wi) in zip(cell_names, R[CartesianIndex.(axes(R)...)], w)]
+    edges = ["E($(cell_names[i]), $(cell_names[j]), $(R[i, j]))" for i in 1:length(cells) for j in (i+1):length(cells)]
+    # loops = ["L($name, $((rii)), $((wi)))" for (name, rii, wi) in zip(cell_names, R[CartesianIndex.(axes(R)...)], w)]
+    # edges = ["E($(cell_names[i]), $(cell_names[j]), $((R[i, j])))" for i in 1:length(cells) for j in (i+1):length(cells)]
+
+    str = ""
+    if length(loops) > 0
+        str *= join(loops, ", ")
+
+        if length(edges) > 0
+            str *= ", " * join(edges, ", ")
+        end
+    end
+
+    return str
+
+end
+
+function _get_one_symbolic_cell_graph(φ::Formula, weights::WFOMCWeights)
     cg = build_cell_graph(φ, weights)
     cg === nothing && return nothing
     
