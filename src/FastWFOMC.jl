@@ -2,9 +2,11 @@ module FastWFOMC
 
 using LightGraphs
 using Nemo
+using Pkg
+using TOML 
+
 
 import LinearAlgebra
-using Pkg
 
 include("utils/utils.jl")
 using .utils
@@ -23,7 +25,7 @@ include("wmc.jl")
 include("algorithm.jl")
 
 function get_version()
-    return string(Pkg.project().version)
+    return TOML.parsefile(joinpath(dirname(@__DIR__), "Project.toml"))["version"]
 end
 
 end # module
