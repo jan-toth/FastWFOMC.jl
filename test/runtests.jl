@@ -30,8 +30,9 @@ using Nemo
     end
 
     @testset "WFOMC with CCs" begin
-        @testset "Number of three-regular graphs" begin
-            include("ccs/three_regular_graphs.jl")
-        end
+        # @testset "Number of three-regular graphs" begin
+        #     include("ccs/three_regular_graphs.jl")
+        # end
+        include("ccs/counting.jl")
     end
 end
