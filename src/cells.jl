@@ -291,13 +291,57 @@ end
 
 """
     get_cell_graph(ψ::AbstractString)
-
 Given a string describing a formula, return serialized cell graph of the formula
 for unitary weights (1, 1) for all the occuring predicates except for those assumed to be Skolem predicates.
 Predicates starting with 'S' are assumed to be Skolem predicates and their weights are set to (1,-1).
 """
 function get_cell_graph(ψ::AbstractString)
-    # φ = parse_formula(ψ)
+    φ = parse_formula(ψ)
+    
+    weights = WFOMCWeights{BigInt}()
+    props = []
+
+    for pred in predicate_symbols(φ)
+        if pred[2] == 0
+            # 0-arity predicate
+            push!(props, pred)
+        end
+        
+        if startswith(pred[1], "S")
+            weights[pred] = (1, -1)
+        else
+            weights[pred] = (1, 1)
+        end
+    end
+
+    if length(props) == 0
+        cg = _get_one_cell_graph(φ, weights)
+        cg === nothing && return "[]"
+        return "[W(1)," * cg * "]"
+    end
+
+    cgs = []
+    for valuation in Iterators.product(ntuple(i -> (TRUE, FALSE), length(props))...)
+        subs = Dict(pred => val for (pred, val) in zip(props, valuation))
+        multiplier = prod(weights[pred][val == TRUE ? 1 : 2] for (pred, val) in pairs(subs); init=one(weights))
+
+        cg = _get_one_cell_graph(replace_subformula(φ, subs), weights)
+        cg === nothing && continue
+        push!(cgs, "W($multiplier), " * cg)
+    end
+    
+    return "[" * join(cgs, "; ") * "]"
+end
+
+
+"""
+    get_cell_graph(ψ::AbstractString)
+
+Given a string describing a formula, return serialized cell graph of the formula
+for unitary weights (1, 1) for all the occuring predicates except for those assumed to be Skolem predicates.
+Predicates starting with 'S' are assumed to be Skolem predicates and their weights are set to (1,-1).
+"""
+function get_cell_graph_unskolemized(ψ::AbstractString)
     skolem = skolemize_theory(ψ)
 
     φ = reduce(&, skolem[1])
@@ -405,8 +449,6 @@ function _get_one_cell_graph(φ::Formula, weights::WFOMCWeights)
 
     loops = ["L($name, $(rii), $(wi))" for (name, rii, wi) in zip(cell_names, R[CartesianIndex.(axes(R)...)], w)]
     edges = ["E($(cell_names[i]), $(cell_names[j]), $(R[i, j]))" for i in 1:length(cells) for j in (i+1):length(cells)]
-    # loops = ["L($name, $((rii)), $((wi)))" for (name, rii, wi) in zip(cell_names, R[CartesianIndex.(axes(R)...)], w)]
-    # edges = ["E($(cell_names[i]), $(cell_names[j]), $((R[i, j])))" for i in 1:length(cells) for j in (i+1):length(cells)]
 
     str = ""
     if length(loops) > 0

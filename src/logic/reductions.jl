@@ -1,3 +1,28 @@
+function get_skolemized_formula(φ::AbstractString)
+    Γ, weights, ccs, denoms = skolemize_theory(φ)
+
+    ψ = reduce(&, Γ) |> string
+    
+    weights_str = []
+    for ((name, arity), (pos, neg)) in weights
+        push!(weights_str, "{'predicate': ['$name', $arity], 'weight': [$pos, $neg]}")
+    end
+
+    ccs_str = []
+    for cc in ccs
+        push!(ccs_str, string(cc))
+    end
+
+    denom_str = []
+    for denom in denoms
+        push!(denom_str, string(denom))
+    end
+
+    postprocess = arr -> "[" * join(arr, ", ") * "]"
+
+    return ψ, weights_str |> postprocess, ccs_str |> postprocess, denom_str |> postprocess
+end
+
 function skolemize_theory(Γ::AbstractString, weights=Dict())
     data = Dict(
         :skolem => 1,

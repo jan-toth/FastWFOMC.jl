@@ -1,3 +1,6 @@
+
+import Base.string
+
 CardinalityRelations = Set([==, >, <, <=, >=])
 
 """
@@ -32,6 +35,7 @@ const CC = CardinalityConstraint
 
 (cc::CC)(::Integer) = cc
 
+
 struct CardinalityConstraintTemplate
     pred::Predicate
     multiplier::Int
@@ -56,6 +60,7 @@ CardinalityConstraintTemplate(pred::Predicate, k::Integer) = CardinalityConstrai
 (cct::CCTemplate)(n::Integer) = CC(cct.pred, cct.multiplier * n, cct.op)
 
 
+
 struct Denom 
     k::Int
 end
@@ -73,3 +78,11 @@ struct BinomialDenomTemplate
 end
 
 (dt::BinomialDenomTemplate)(n::Integer) = binomial(BigInt(n), dt.k)
+
+
+
+Base.string(cc::CC) = "{'predicate': ['$(cc.pred[1])', $(cc.pred[2])], 'cardinality': '$(cc.k)', 'op': '$(cc.op)'}"
+Base.string(cc::CCTemplate) = "{'predicate': ['$(cc.pred[1])', $(cc.pred[2])], 'cardinality': '$(cc.multiplier)*n', 'op': '$(cc.op)'}"
+Base.string(d::Denom) = "$(d.k)"
+Base.string(d::ExpDenomTemplate) = "$(factorial(factorial(BigInt(d.k))))^n"
+Base.string(d::BinomialDenomTemplate) = "binom(n, $(d.k))"
