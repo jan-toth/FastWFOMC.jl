@@ -12,7 +12,7 @@ Pkg.activate("."; io=devnull)
 
 using FastWFOMC
 
-function process_sentences(file=ARGS[1])
+function process_sentences(file=ARGS[1], limit_cg=parse(Int, ARGS[2]))
     lines = String[]
     open(file) do fr
         append!(lines, readlines(fr))
@@ -23,7 +23,7 @@ function process_sentences(file=ARGS[1])
     Threads.@threads for i in eachindex(lines)
         line = lines[i]
         startswith(line, '#') && continue
-        sentences[i] = get_cell_graph(line)
+        sentences[i] = get_cell_graph(line; limit_cg)
     end
 
     for sentence in sentences
@@ -33,6 +33,3 @@ function process_sentences(file=ARGS[1])
 end
 
 process_sentences()
-
-
-

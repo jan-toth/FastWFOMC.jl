@@ -6,6 +6,9 @@ const parse_formula = expr
 const Variable(name::String) = Formula(name)
 const Predicate = Tuple{String,Int}
 
+mutable struct CellGraphTimeLimitExceeded <: Exception
+end
+
 
 TRUE = Formula("TRUE")
 FALSE = Formula("FALSE")
@@ -74,15 +77,19 @@ Base.eltype(::ModelIterator) = Dict{Formula,Bool}
 Base.IteratorSize(::ModelIterator) = Base.HasLength()
 Base.length(iter::ModelIterator) = length(iter.partial_models) > 0 ? sum(2^length(m.unassigned_symbols) for m in iter.partial_models) : 0
 
-function find_all_models(ψ::Formula)
+function find_all_models(ψ::Formula; limit_cg=60)
     clauses = conjuncts(to_conjunctive_normal_form(ψ))
     symbols_set = proposition_symbols(ψ)
     symbols = collect(symbols_set)
 
     models = PartialModel[]
     while true
-        model = dpll(clauses, symbols, Dict{Formula,Bool}())
+        timed = @elapsed model = dpll(clauses, symbols, Dict{Formula,Bool}())
         isa(model, Dict) || break
+
+        if timed > limit_cg + 0.01 * limit_cg
+            throw(CellGraphTimeLimitExceeded())
+        end
 
         # Make sure, there are no trivial assignments in the model
         delete!(model, TRUE)
