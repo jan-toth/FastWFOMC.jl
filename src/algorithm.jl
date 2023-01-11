@@ -8,7 +8,7 @@ struct NoOptFastWFOMCAlgorithm <: WFOMCAlgorithm end
 struct FastWFOMCAlgorithm <: WFOMCAlgorithm end
 
 
-function compute_wfomc_unskolemized(ψ::AbstractString, domainsize::Integer, weights=WFOMCWeights(); ccs=CardinalityConstraint[], limit_cg=120)
+function compute_wfomc_unskolemized(ψ::AbstractString, domainsize::Integer, weights=WFOMCWeights(); ccs=CardinalityConstraint[], limit_cg=30)
     try
         Γ, weights, cc_templates, denom_templates, ks = skolemize_theory(ψ, weights)
 
@@ -85,7 +85,7 @@ function compute_wfomc(ψ::Formula, domainsize::Integer; kwargs...)
     compute_wfomc(ψ, domainsize, weights; kwargs...)
 end
 
-function _compute_wfomc_once(ψ::Formula, domainsize::Integer, weights::WFOMCWeights; ccs=CardinalityConstraint[], algo=FastWFOMCAlgorithm(), limit_cg=120)
+function _compute_wfomc_once(ψ::Formula, domainsize::Integer, weights::WFOMCWeights; ccs=CardinalityConstraint[], algo=FastWFOMCAlgorithm(), limit_cg=30)
     wfomc = WFOMC(ψ, domainsize, weights)
 
     if isempty(ccs)

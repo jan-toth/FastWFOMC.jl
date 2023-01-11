@@ -12,7 +12,7 @@ Pkg.activate("."; io=devnull)
 
 using FastWFOMC
 
-function process_sentences(file=ARGS[1], limit_cg=5)
+function process_sentences(file=ARGS[1], limit_cg=30)
     if length(ARGS) > 1 
         limit_cg = parse(Int, ARGS[2])
     end
