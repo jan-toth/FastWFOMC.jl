@@ -4,7 +4,11 @@ using Base.Threads
 Pkg.activate("."; io=devnull)
 using FastWFOMC
 
-function process_sentences(file=ARGS[1], limit_cg=parse(Int, ARGS[2]))
+function process_sentences(file=ARGS[1], limit_cg=5)
+    if length(ARGS) > 1 
+        limit_cg = parse(Int, ARGS[2])
+    end
+
     lines = String[]
     open(file) do fr
         append!(lines, readlines(fr))
