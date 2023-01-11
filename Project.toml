@@ -1,7 +1,7 @@
 name = "FastWFOMC"
 uuid = "ac26a18c-a000-4bf3-90e5-18d42cfd75f0"
 authors = ["Jan Tóth <jan.toth138@gmail.com>"]
-version = "0.3.1"
+version = "0.3.2"
 
 [deps]
 Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
