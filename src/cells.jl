@@ -64,13 +64,14 @@ However, conditioning `ψ` on some cells may lead to an unsatisfiable formula.
 This function builds cells that are guaranteed to lead to a satisfiable residual formula,
 i.e., *valid* cells.
 """
-function build_valid_cells(ψ::Formula; limit_cg=60)
+function build_valid_cells(ψ::Formula)
     ψ = substitute(Dict(Variable("y") => Variable("x")), ψ)
 
     atoms = proposition_symbols(ψ) |> collect
     p = length(atoms)
 
-    models = find_all_models(ψ; limit_cg)
+
+    models = find_all_models(ψ)
     cells = Vector{Cell}(undef, length(models))
 
     for (i, model) in enumerate(models)
@@ -95,8 +96,8 @@ The cell graph is represented as a named tuple containing:
 2. `R` - symmetric matrix holding `sₖ`'s on the diagonal and `rᵢⱼ`'s off-diagonal
 3. `w` - vector holding `wₖ` values
 """
-function build_cell_graph(ψ::Formula, weights::WFOMCWeights; limit_cg=60)
-    cells = build_valid_cells(ψ; limit_cg)
+function build_cell_graph(ψ::Formula, weights::WFOMCWeights)
+    cells = build_valid_cells(ψ)
     if length(cells) == 0
         return nothing
     end
@@ -104,7 +105,7 @@ function build_cell_graph(ψ::Formula, weights::WFOMCWeights; limit_cg=60)
     w = compute_cell_weights(weights, cells)
     R = compute_cell_interactions(ψ, weights, cells)
     
-    return (cells=cells, R, w)
+    return (cells=cells, R, w)   
 end
 
 function compute_cell_weights(weights::WFOMCWeights, cells)
@@ -237,8 +238,8 @@ Each node (clique) of the collapsed cell graph consists of
 
 See also: [`build_cell_graph`](@ref), [`find_symmetric_cliques`](@ref)
 """
-function build_collapsed_cell_graph(ψ::Formula, weights::WFOMCWeights; limit_cg=60)
-    cell_graph = build_cell_graph(ψ, weights; limit_cg)
+function build_collapsed_cell_graph(ψ::Formula, weights::WFOMCWeights)
+    cell_graph = build_cell_graph(ψ, weights)
     if cell_graph === nothing
         return nothing
     end
@@ -295,47 +296,42 @@ Given a string describing a formula, return serialized cell graph of the formula
 for unitary weights (1, 1) for all the occuring predicates except for those assumed to be Skolem predicates.
 Predicates starting with 'S' are assumed to be Skolem predicates and their weights are set to (1,-1).
 """
-function get_cell_graph(ψ::AbstractString; limit_cg=60)
-    try
-        φ = parse_formula(ψ)
-    
-        weights = WFOMCWeights{BigInt}()
-        props = []
+function get_cell_graph(ψ::AbstractString)
+    φ = parse_formula(ψ)
 
-        for pred in predicate_symbols(φ)
-            if pred[2] == 0
-                # 0-arity predicate
-                push!(props, pred)
-            end
-            
-            if startswith(pred[1], "S")
-                weights[pred] = (1, -1)
-            else
-                weights[pred] = (1, 1)
-            end
-        end
+    weights = WFOMCWeights{BigInt}()
+    props = []
 
-        if length(props) == 0
-            cg = _get_one_cell_graph(φ, weights; limit_cg)
-            cg === nothing && return "[]"
-            return "[W(1)," * cg * "]"
-        end
-
-        cgs = []
-        for valuation in Iterators.product(ntuple(i -> (TRUE, FALSE), length(props))...)
-            subs = Dict(pred => val for (pred, val) in zip(props, valuation))
-            multiplier = prod(weights[pred][val == TRUE ? 1 : 2] for (pred, val) in pairs(subs); init=one(weights))
-
-            cg = _get_one_cell_graph(replace_subformula(φ, subs), weights; limit_cg)
-            cg === nothing && continue
-            push!(cgs, "W($multiplier), " * cg)
+    for pred in predicate_symbols(φ)
+        if pred[2] == 0
+            # 0-arity predicate
+            push!(props, pred)
         end
         
-        return "[" * join(cgs, "; ") * "]"
-    catch e
-        isa(e, CellGraphTimeLimitExceeded) || throw(e)
-        return "[]"
+        if startswith(pred[1], "S")
+            weights[pred] = (1, -1)
+        else
+            weights[pred] = (1, 1)
+        end
     end
+
+    if length(props) == 0
+        cg = _get_one_cell_graph(φ, weights)
+        cg === nothing && return "[]"
+        return "[W(1)," * cg * "]"
+    end
+
+    cgs = []
+    for valuation in Iterators.product(ntuple(i -> (TRUE, FALSE), length(props))...)
+        subs = Dict(pred => val for (pred, val) in zip(props, valuation))
+        multiplier = prod(weights[pred][val == TRUE ? 1 : 2] for (pred, val) in pairs(subs); init=one(weights))
+
+        cg = _get_one_cell_graph(replace_subformula(φ, subs), weights)
+        cg === nothing && continue
+        push!(cgs, "W($multiplier), " * cg)
+    end
+    
+    return "[" * join(cgs, "; ") * "]"
     
 end
 
@@ -347,7 +343,7 @@ Given a string describing a formula, return serialized cell graph of the formula
 for unitary weights (1, 1) for all the occuring predicates except for those assumed to be Skolem predicates.
 Predicates starting with 'S' are assumed to be Skolem predicates and their weights are set to (1,-1).
 """
-function get_cell_graph_unskolemized(ψ::AbstractString; limit_cg=60)
+function get_cell_graph_unskolemized(ψ::AbstractString)
     try
         skolem = skolemize_theory(ψ)
 
@@ -361,7 +357,7 @@ function get_cell_graph_unskolemized(ψ::AbstractString; limit_cg=60)
 
         ccs = skolem[3]
 
-        isempty(ccs) || return _get_symbolic_cell_graph(φ, weights, ccs; limit_cg)
+        isempty(ccs) || return _get_symbolic_cell_graph(φ, weights, ccs)
             
         weights = WFOMCWeights{BigInt}(weights)
         props = []
@@ -380,7 +376,7 @@ function get_cell_graph_unskolemized(ψ::AbstractString; limit_cg=60)
         end
 
         if length(props) == 0
-            cg = _get_one_cell_graph(φ, weights; limit_cg)
+            cg = _get_one_cell_graph(φ, weights)
             cg === nothing && return "[]"
             return "[W(1)," * cg * "]"
         end
@@ -390,19 +386,19 @@ function get_cell_graph_unskolemized(ψ::AbstractString; limit_cg=60)
             subs = Dict(pred => val for (pred, val) in zip(props, valuation))
             multiplier = prod(weights[pred][val == TRUE ? 1 : 2] for (pred, val) in pairs(subs); init=one(weights))
 
-            cg = _get_one_cell_graph(replace_subformula(φ, subs), weights; limit_cg)
+            cg = _get_one_cell_graph(replace_subformula(φ, subs), weights)
             cg === nothing && continue
             push!(cgs, "W($multiplier), " * cg)
         end
         
         return "[" * join(cgs, "; ") * "]"
     catch e
-        isa(e, CellGraphTimeLimitExceeded) || throw(e)
+        isa(e, CGTimeLimitExceededError) || rethrow(e)
         return "[]"
     end
 end
 
-function _get_symbolic_cell_graph(φ, weights, ccs; limit_cg=60)
+function _get_symbolic_cell_graph(φ, weights, ccs)
     ring, vars = PolynomialRing(QQ, length(ccs))
 
     w⁺ = WFOMCWeights{fmpq_mpoly}()
@@ -431,7 +427,7 @@ function _get_symbolic_cell_graph(φ, weights, ccs; limit_cg=60)
         end
 
         if length(props) == 0
-            cg = _get_one_symbolic_cell_graph(φ, weights; limit_cg)
+            cg = _get_one_symbolic_cell_graph(φ, weights)
             cg === nothing && return "[]"
             return "[W(1)," * cg * "]"
         end
@@ -441,7 +437,7 @@ function _get_symbolic_cell_graph(φ, weights, ccs; limit_cg=60)
             subs = Dict(pred => val for (pred, val) in zip(props, valuation))
             multiplier = prod(weights[pred][val == TRUE ? 1 : 2] for (pred, val) in pairs(subs); init=one(weights))
 
-            cg = _get_one_symbolic_cell_graph(replace_subformula(φ, subs), weights; limit_cg)
+            cg = _get_one_symbolic_cell_graph(replace_subformula(φ, subs), weights)
             cg === nothing && continue
             push!(cgs, "W($multiplier), " * cg)
         end
@@ -450,8 +446,8 @@ function _get_symbolic_cell_graph(φ, weights, ccs; limit_cg=60)
     end
 end
 
-function _get_one_cell_graph(φ::Formula, weights::WFOMCWeights; limit_cg=60)
-    cg = build_cell_graph(φ, weights; limit_cg)
+function _get_one_cell_graph(φ::Formula, weights::WFOMCWeights)
+    cg = build_cell_graph(φ, weights)
     cg === nothing && return nothing
     
     cells, R, w = cg
@@ -473,8 +469,8 @@ function _get_one_cell_graph(φ::Formula, weights::WFOMCWeights; limit_cg=60)
 
 end
 
-function _get_one_symbolic_cell_graph(φ::Formula, weights::WFOMCWeights; limit_cg=60)
-    cg = build_cell_graph(φ, weights; limit_cg)
+function _get_one_symbolic_cell_graph(φ::Formula, weights::WFOMCWeights)
+    cg = build_cell_graph(φ, weights)
     cg === nothing && return nothing
     
     cells, R, w = cg

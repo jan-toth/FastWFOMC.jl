@@ -8,36 +8,29 @@ struct NoOptFastWFOMCAlgorithm <: WFOMCAlgorithm end
 struct FastWFOMCAlgorithm <: WFOMCAlgorithm end
 
 
-function compute_wfomc_unskolemized(ψ::AbstractString, domainsize::Integer, weights=WFOMCWeights(); ccs=CardinalityConstraint[], limit_cg=30)
-    try
-        Γ, weights, cc_templates, denom_templates, ks = skolemize_theory(ψ, weights)
 
-        for k in ks
-            k > domainsize && return zero(weights)
-        end
-        weights = WFOMCWeights{Rational{BigInt}}(weights)
-    
-        for cct in cc_templates
-            push!(ccs, cct(domainsize))
-        end
-    
-        denominator = big"1"//1
-        for divt in denom_templates
-            denominator *= divt(domainsize)
-        end
-    
-        ψ = reduce(&, Γ)
-        fill_missing_weights!(weights, ψ)
-    
-        wfomc = compute_wfomc(ψ, domainsize, weights; ccs, limit_cg)
-        
-        isa(wfomc, AbstractString) && return wfomc
-        
-        return wfomc // denominator 
-    catch e
-        isa(e, CellGraphTimeLimitExceeded) || throw(e)
-        return "Cell graph took more than $limit_cg seconds to compute"
+function compute_wfomc_unskolemized(ψ::AbstractString, domainsize::Integer, weights=WFOMCWeights(); ccs=CardinalityConstraint[], limit_wfomc=120)
+    Γ, weights, cc_templates, denom_templates, ks = skolemize_theory(ψ, weights)
+
+    for k in ks
+        k > domainsize && return zero(weights)
     end
+    weights = WFOMCWeights{Rational{BigInt}}(weights)
+
+    for cct in cc_templates
+        push!(ccs, cct(domainsize))
+    end
+
+    denominator = big"1"//1
+    for divt in denom_templates
+        denominator *= divt(domainsize)
+    end
+
+    ψ = reduce(&, Γ)
+    fill_missing_weights!(weights, ψ)
+
+    wfomc = compute_wfomc(ψ, domainsize, weights; ccs, limit_wfomc)
+    return wfomc // denominator 
 end
 
 """
@@ -49,31 +42,25 @@ If `weights` are not provided, they are all set to `1`.
 `kwargs` may specify special predicates or change the computation's behavior in some way:
 1. `algo` - algorithm to be used.
 2. `ccs` - list of cardinality constraints for some of the predicates in the formula `ψ`.
-3. `limit_cg` - time limit for computing cell graph in SECONDS
+4. `limit_wfomc` - time limit for computing WFOMC in SECONDS
 """
 function compute_wfomc(ψ::Formula, domainsize::Integer, weights::WFOMCWeights; kwargs...)
-    try
-        props = filter(x -> x[2] == 0, predicate_symbols(ψ))
-        length(props) == 0 && return _compute_wfomc_once(ψ, domainsize, weights; kwargs...)
-    
-        total = zero(weights)
-        # TODO multithreading
-        for valuation in Iterators.product(ntuple(i -> (TRUE, FALSE), length(props))...)
-            subs = Dict(pred => val for (pred, val) in zip(props, valuation))
-            
-            ϕ = replace_subformula(ψ, subs)
-            count = _compute_wfomc_once(ϕ, domainsize, weights; kwargs...)
-    
-            multiplier = prod(weights[pred][val == TRUE ? 1 : 2] for (pred, val) in pairs(subs); init=one(weights))
-            total += multiplier * count
-        end
-    
-        return total        
-    catch e
-        isa(e, CellGraphTimeLimitExceeded) || throw(e)
-        return "Cell graph took more than $(kwargs[:limit_cg]) seconds to compute"
+    props = filter(x -> x[2] == 0, predicate_symbols(ψ))
+    length(props) == 0 && return _compute_wfomc_once(ψ, domainsize, weights; kwargs...)
+
+    total = zero(weights)
+    # TODO multithreading
+    for valuation in Iterators.product(ntuple(i -> (TRUE, FALSE), length(props))...)
+        subs = Dict(pred => val for (pred, val) in zip(props, valuation))
+        
+        ϕ = replace_subformula(ψ, subs)
+        count = _compute_wfomc_once(ϕ, domainsize, weights; kwargs...)
+
+        multiplier = prod(weights[pred][val == TRUE ? 1 : 2] for (pred, val) in pairs(subs); init=one(weights))
+        total += multiplier * count
     end
 
+    return total
 end
 
 
@@ -85,17 +72,36 @@ function compute_wfomc(ψ::Formula, domainsize::Integer; kwargs...)
     compute_wfomc(ψ, domainsize, weights; kwargs...)
 end
 
-function _compute_wfomc_once(ψ::Formula, domainsize::Integer, weights::WFOMCWeights; ccs=CardinalityConstraint[], algo=FastWFOMCAlgorithm(), limit_cg=30)
-    wfomc = WFOMC(ψ, domainsize, weights)
-
-    if isempty(ccs)
-        return compute_wfomc_fo2(wfomc, algo; limit_cg)
+function _compute_wfomc_once(ψ::Formula, domainsize::Integer, weights::WFOMCWeights; ccs=CardinalityConstraint[], algo=FastWFOMCAlgorithm(), limit_wfomc=120)
+    wfomc = if limit_wfomc < 0
+        if isempty(ccs)
+            compute_wfomc_fo2(WFOMC(ψ, domainsize, weights), algo)
+        else
+            compute_wfomc_ccs(WFOMC(ψ, domainsize, weights), ccs, algo)
+        end
     else
-        return compute_wfomc_ccs(WFOMC(ψ, domainsize, weights), ccs, algo; limit_cg)
+        if isempty(ccs)
+            tsk = @task compute_wfomc_fo2(WFOMC(ψ, domainsize, weights), algo)
+        else
+            tsk = @task compute_wfomc_ccs(WFOMC(ψ, domainsize, weights), ccs, algo)
+        end
+        schedule(tsk)
+
+        Timer(limit_wfomc) do timer
+            istaskdone(tsk) || Base.throwto(tsk, InterruptException())
+        end
+        
+        try
+            fetch(tsk)
+        catch _
+            throw(WFOMCTimeLimitExceededError())
+        end
     end
+
+    return wfomc
 end
 
-function compute_wfomc_ccs(wfomc::WFOMC{T}, ccs::Vector{CardinalityConstraint}, algo::WFOMCAlgorithm; limit_cg=120) where {T <: Union{Number, fmpz, fmpq}}
+function compute_wfomc_ccs(wfomc::WFOMC{T}, ccs::Vector{CardinalityConstraint}, algo::WFOMCAlgorithm) where {T <: Union{Number, fmpz, fmpq}}
     ring, vars = PolynomialRing(QQ, length(ccs))
     exponents = zeros(Int, nvars(ring))
 
@@ -109,14 +115,15 @@ function compute_wfomc_ccs(wfomc::WFOMC{T}, ccs::Vector{CardinalityConstraint}, 
         exponents[i] = cc.k
     end
 
-    wmc_poly = compute_wfomc_fo2(WFOMC(formula(wfomc), domsize(wfomc), w⁺), algo; limit_cg)
+    wmc_poly = compute_wfomc_fo2(WFOMC(formula(wfomc), domsize(wfomc), w⁺), algo)
     wmc_poly == 0 && return zero(T)
 
     @assert isone(denominator(wmc_poly))
     result = nothing
     try
         result = coeff(numerator(wmc_poly), vars, exponents) |> constant_coefficient  
-    catch MethodError
+    catch e
+        e isa MethodError || rethrow(e)
         result = coeff(wmc_poly, vars, exponents) |> constant_coefficient
     end
     
@@ -124,10 +131,10 @@ function compute_wfomc_ccs(wfomc::WFOMC{T}, ccs::Vector{CardinalityConstraint}, 
 end
 
 
-function compute_wfomc_fo2(wfomc::WFOMC, ::NoOptFastWFOMCAlgorithm; limit_cg=60)
+function compute_wfomc_fo2(wfomc::WFOMC, ::NoOptFastWFOMCAlgorithm)
     # error("NoOpt FastWFOMC unsupported for now")
 
-    cell_graph = build_cell_graph(formula(wfomc), weights(wfomc); limit_cg)
+    cell_graph = build_cell_graph(formula(wfomc), weights(wfomc))
     if cell_graph === nothing
         return zero(wfomc)
     end
@@ -157,11 +164,11 @@ function compute_wfomc_fo2(wfomc::WFOMC, ::NoOptFastWFOMCAlgorithm; limit_cg=60)
 end
 
 
-function compute_wfomc_fo2(wfomc::WFOMC, ::FastWFOMCAlgorithm; limit_cg=60)
+function compute_wfomc_fo2(wfomc::WFOMC, ::FastWFOMCAlgorithm)
     empty!(CACHE)
     pt = PascalTriangle(domsize(wfomc))
 
-    collapsed_graph = build_collapsed_cell_graph(formula(wfomc), weights(wfomc); limit_cg)
+    collapsed_graph = build_collapsed_cell_graph(formula(wfomc), weights(wfomc))
     if collapsed_graph === nothing
         return zero(wfomc)
     end
