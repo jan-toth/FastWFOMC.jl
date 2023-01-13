@@ -1,6 +1,0 @@
-(V x V y U0(x) | B0(x, y)) & (E x V y B0(y, x)) & (E=1 x V y B0(x, y))
-(E x E y B0(x, y)) & (V x E y B0(x, x) | B1(x, y)) & (E x V y B1(x, y))
-(E x E y B0(x, y)) & (E x E y ~B0(x, x) | B1(x, y)) & (E x V y ~B1(x, y))
-(E x V y B0(x, y)) & (E x E y ~B0(x, x) | B1(x, y)) & (V x ~B1(x, x))
-(E x E y B0(x, y)) & (V x E y ~B0(x, x) | B1(x, y)) & (V x E y ~B1(y, x))
-(E x V y B0(x, y)) & (V x E y B0(x, x) | B1(x, y)) & (E x E y B1(x, y))

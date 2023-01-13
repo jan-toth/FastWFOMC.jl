@@ -265,6 +265,8 @@ function _handle_existsK_forall(ϕ, k; vars, data)
 end
 
 function _handle_exists_existsK(ϕ, k; vars, data)
+    error("Unsupported quantifier constellation")
+
     sk_cnt = data[:skolem]
     count_cnt = data[:counting]
     data[:skolem] += 1
@@ -285,6 +287,8 @@ function _handle_exists_existsK(ϕ, k; vars, data)
 end
 
 function _handle_existsK_exists(ϕ, k; vars, data)
+    error("Unsupported quantifier constellation")
+
     sk_cnt = data[:skolem]
     count_cnt = data[:counting]
 
@@ -307,7 +311,7 @@ function _handle_existsK_exists(ϕ, k; vars, data)
 end
 
 function _handle_existsK_existsK(ϕ, k1, k2; vars, data)
-    # error("Unsupported quantifier constellation")
+    error("Unsupported quantifier constellation")
 
     count_cnt = data[:counting]
     data[:counting] += 1
@@ -324,14 +328,15 @@ function _handle_existsK_existsK(ϕ, k1, k2; vars, data)
     append!(cnjs, _handle_lemma4(~Rx, Rxy, k2; vars, data))
     push!(cnjs, Rx | Cx)
     push!(cnjs, Cx | Dx)
-    append!(cnjs, _handle_lemma4(Cx & Dx, Rxy, k2; vars, data))
+    append!(cnjs, _handle_lemma4(Cx, Rxy, k2; vars, data))
+    append!(cnjs, _handle_lemma4(Dx, Rxy, k2; vars, data))
 
     push!(data[:ccs], CC((Rx.operator, 1), k1))
 
     return cnjs
 end
 
-"""ϕ = V x (ϕ(x) | (E=k y ψ(x, y)))"""
+"""ϕ = V x ϕ(x) | E=k y ψ(x, y)"""
 function _handle_lemma4(ϕ, ψ, k; vars, data)
     count_cnt = data[:counting]
     data[:counting] += 1

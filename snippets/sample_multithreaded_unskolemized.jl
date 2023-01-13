@@ -4,11 +4,7 @@ using Base.Threads
 Pkg.activate("."; io=devnull)
 using FastWFOMC
 
-function process_sentences(file=ARGS[1], limit_cg=30)
-    if length(ARGS) > 1 
-        limit_cg = parse(Int, ARGS[2])
-    end
-
+function process_sentences(file=ARGS[1])
     lines = String[]
     open(file) do fr
         append!(lines, readlines(fr))
@@ -19,7 +15,7 @@ function process_sentences(file=ARGS[1], limit_cg=30)
     Threads.@threads for i in eachindex(lines)
         line = lines[i]
         startswith(line, '#') && continue
-        sentences[i] = get_cell_graph_unskolemized(line; limit_cg)
+        sentences[i] = get_cell_graph_unskolemized(line)
     end
 
     for sentence in sentences
@@ -29,3 +25,6 @@ function process_sentences(file=ARGS[1], limit_cg=30)
 end
 
 process_sentences()
+
+
+

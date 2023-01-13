@@ -70,7 +70,6 @@ function build_valid_cells(ψ::Formula)
     atoms = proposition_symbols(ψ) |> collect
     p = length(atoms)
 
-
     models = find_all_models(ψ)
     cells = Vector{Cell}(undef, length(models))
 
@@ -105,7 +104,7 @@ function build_cell_graph(ψ::Formula, weights::WFOMCWeights)
     w = compute_cell_weights(weights, cells)
     R = compute_cell_interactions(ψ, weights, cells)
     
-    return (cells=cells, R, w)   
+    return (cells=cells, R, w)
 end
 
 function compute_cell_weights(weights::WFOMCWeights, cells)
@@ -298,7 +297,7 @@ Predicates starting with 'S' are assumed to be Skolem predicates and their weigh
 """
 function get_cell_graph(ψ::AbstractString)
     φ = parse_formula(ψ)
-
+    
     weights = WFOMCWeights{BigInt}()
     props = []
 
@@ -332,7 +331,6 @@ function get_cell_graph(ψ::AbstractString)
     end
     
     return "[" * join(cgs, "; ") * "]"
-    
 end
 
 
@@ -344,61 +342,57 @@ for unitary weights (1, 1) for all the occuring predicates except for those assu
 Predicates starting with 'S' are assumed to be Skolem predicates and their weights are set to (1,-1).
 """
 function get_cell_graph_unskolemized(ψ::AbstractString)
-    try
-        skolem = skolemize_theory(ψ)
+    skolem = skolemize_theory(ψ)
 
-        φ = reduce(&, skolem[1])
-        weights = skolem[2]
-        for pred in predicate_symbols(φ)
-            haskey(weights, pred) && continue
-            weights[pred] = (1, 1)
-        end
+    φ = reduce(&, skolem[1])
+    weights = skolem[2]
+    for pred in predicate_symbols(φ)
+        haskey(weights, pred) && continue
+        weights[pred] = (1, 1)
+    end
 
 
-        ccs = skolem[3]
+    ccs = skolem[3]
 
-        isempty(ccs) || return _get_symbolic_cell_graph(φ, weights, ccs)
-            
-        weights = WFOMCWeights{BigInt}(weights)
-        props = []
+    isempty(ccs) || return _get_symbolic_cell_graph(φ, weights, ccs)
+        
+    weights = WFOMCWeights{BigInt}(weights)
+    props = []
 
-        for pred in predicate_symbols(φ)
-            if pred[2] == 0
-                # 0-arity predicate
-                push!(props, pred)
-            end
-            
-            if startswith(pred[1], "S")
-                weights[pred] = (1, -1)
-            else
-                weights[pred] = (1, 1)
-            end
-        end
-
-        if length(props) == 0
-            cg = _get_one_cell_graph(φ, weights)
-            cg === nothing && return "[]"
-            return "[W(1)," * cg * "]"
-        end
-
-        cgs = []
-        for valuation in Iterators.product(ntuple(i -> (TRUE, FALSE), length(props))...)
-            subs = Dict(pred => val for (pred, val) in zip(props, valuation))
-            multiplier = prod(weights[pred][val == TRUE ? 1 : 2] for (pred, val) in pairs(subs); init=one(weights))
-
-            cg = _get_one_cell_graph(replace_subformula(φ, subs), weights)
-            cg === nothing && continue
-            push!(cgs, "W($multiplier), " * cg)
+    for pred in predicate_symbols(φ)
+        if pred[2] == 0
+            # 0-arity predicate
+            push!(props, pred)
         end
         
-        return "[" * join(cgs, "; ") * "]"
-    catch e
-        isa(e, CGTimeLimitExceededError) || rethrow(e)
-        return "[]"
+        if startswith(pred[1], "S")
+            weights[pred] = (1, -1)
+        else
+            weights[pred] = (1, 1)
+        end
     end
+
+    if length(props) == 0
+        cg = _get_one_cell_graph(φ, weights)
+        cg === nothing && return "[]"
+        return "[W(1)," * cg * "]"
+    end
+
+    cgs = []
+    for valuation in Iterators.product(ntuple(i -> (TRUE, FALSE), length(props))...)
+        subs = Dict(pred => val for (pred, val) in zip(props, valuation))
+        multiplier = prod(weights[pred][val == TRUE ? 1 : 2] for (pred, val) in pairs(subs); init=one(weights))
+
+        cg = _get_one_cell_graph(replace_subformula(φ, subs), weights)
+        cg === nothing && continue
+        push!(cgs, "W($multiplier), " * cg)
+    end
+    
+    return "[" * join(cgs, "; ") * "]"
 end
 
 function _get_symbolic_cell_graph(φ, weights, ccs)
+
     ring, vars = PolynomialRing(QQ, length(ccs))
 
     w⁺ = WFOMCWeights{fmpq_mpoly}()

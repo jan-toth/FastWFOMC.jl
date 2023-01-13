@@ -8,10 +8,6 @@ using TOML
 
 import LinearAlgebra
 
-abstract type TimeLimitExceededError <: Exception end
-mutable struct WFOMCTimeLimitExceededError <: TimeLimitExceededError end
-mutable struct CGTimeLimitExceededError <: TimeLimitExceededError end
-
 include("utils/utils.jl")
 using .utils
 

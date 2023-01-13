@@ -84,24 +84,5 @@
         end
     end
 
-    @testset "E=k x E y ..." begin
-        φ = k -> "E=$k x E y E(x, y)"
-        for k = 1:3, n = 1:20
-            @test compute_wfomc_unskolemized(φ(k), n) == binomial(BigInt(n), k)*(big"2"^n - 1)^k
-        end
-
-        φ =  k -> "(E=$k x E y E(x, y)) & (V x ~E(x, x))"
-        for k = 1:3, n = 1:20
-            @test compute_wfomc_unskolemized(φ(k), n) == binomial(BigInt(n), k)*(big"2"^(n-1) - 1)^k
-        end
-
-        φ =  k -> "(E=$k x E y E(x, y)) & (V x ~E(x, x)) & (V x V y ~E(x, y) | E(y, x))"
-        for n = 1:20
-            @test compute_wfomc_unskolemized(φ(1), n) == 0
-            @test compute_wfomc_unskolemized(φ(2), n) == binomial(BigInt(n), 2)
-            @test compute_wfomc_unskolemized(φ(3), n) == binomial(BigInt(n), 3) * 4
-        end
-    end
-
 end
     

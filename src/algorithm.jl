@@ -9,7 +9,7 @@ struct FastWFOMCAlgorithm <: WFOMCAlgorithm end
 
 
 
-function compute_wfomc_unskolemized(ψ::AbstractString, domainsize::Integer, weights=WFOMCWeights(); ccs=CardinalityConstraint[], limit_wfomc=120)
+function compute_wfomc_unskolemized(ψ::AbstractString, domainsize::Integer, weights=WFOMCWeights(); ccs=CardinalityConstraint[])
     Γ, weights, cc_templates, denom_templates, ks = skolemize_theory(ψ, weights)
 
     for k in ks
@@ -29,8 +29,8 @@ function compute_wfomc_unskolemized(ψ::AbstractString, domainsize::Integer, wei
     ψ = reduce(&, Γ)
     fill_missing_weights!(weights, ψ)
 
-    wfomc = compute_wfomc(ψ, domainsize, weights; ccs, limit_wfomc)
-    return wfomc // denominator 
+    wfomc = compute_wfomc(ψ, domainsize, weights; ccs)
+    return wfomc // denominator
 end
 
 """
@@ -42,7 +42,6 @@ If `weights` are not provided, they are all set to `1`.
 `kwargs` may specify special predicates or change the computation's behavior in some way:
 1. `algo` - algorithm to be used.
 2. `ccs` - list of cardinality constraints for some of the predicates in the formula `ψ`.
-4. `limit_wfomc` - time limit for computing WFOMC in SECONDS
 """
 function compute_wfomc(ψ::Formula, domainsize::Integer, weights::WFOMCWeights; kwargs...)
     props = filter(x -> x[2] == 0, predicate_symbols(ψ))
@@ -72,33 +71,14 @@ function compute_wfomc(ψ::Formula, domainsize::Integer; kwargs...)
     compute_wfomc(ψ, domainsize, weights; kwargs...)
 end
 
-function _compute_wfomc_once(ψ::Formula, domainsize::Integer, weights::WFOMCWeights; ccs=CardinalityConstraint[], algo=FastWFOMCAlgorithm(), limit_wfomc=120)
-    wfomc = if limit_wfomc < 0
-        if isempty(ccs)
-            compute_wfomc_fo2(WFOMC(ψ, domainsize, weights), algo)
-        else
-            compute_wfomc_ccs(WFOMC(ψ, domainsize, weights), ccs, algo)
-        end
+function _compute_wfomc_once(ψ::Formula, domainsize::Integer, weights::WFOMCWeights; ccs=CardinalityConstraint[], algo=FastWFOMCAlgorithm())
+    wfomc = WFOMC(ψ, domainsize, weights)
+
+    if isempty(ccs)
+        return compute_wfomc_fo2(wfomc, algo)
     else
-        if isempty(ccs)
-            tsk = @task compute_wfomc_fo2(WFOMC(ψ, domainsize, weights), algo)
-        else
-            tsk = @task compute_wfomc_ccs(WFOMC(ψ, domainsize, weights), ccs, algo)
-        end
-        schedule(tsk)
-
-        Timer(limit_wfomc) do timer
-            istaskdone(tsk) || Base.throwto(tsk, InterruptException())
-        end
-        
-        try
-            fetch(tsk)
-        catch _
-            throw(WFOMCTimeLimitExceededError())
-        end
+        return compute_wfomc_ccs(WFOMC(ψ, domainsize, weights), ccs, algo)
     end
-
-    return wfomc
 end
 
 function compute_wfomc_ccs(wfomc::WFOMC{T}, ccs::Vector{CardinalityConstraint}, algo::WFOMCAlgorithm) where {T <: Union{Number, fmpz, fmpq}}
@@ -122,8 +102,7 @@ function compute_wfomc_ccs(wfomc::WFOMC{T}, ccs::Vector{CardinalityConstraint}, 
     result = nothing
     try
         result = coeff(numerator(wmc_poly), vars, exponents) |> constant_coefficient  
-    catch e
-        e isa MethodError || rethrow(e)
+    catch MethodError
         result = coeff(wmc_poly, vars, exponents) |> constant_coefficient
     end
     

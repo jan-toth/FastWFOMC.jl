@@ -80,7 +80,6 @@ function find_all_models(ψ::Formula)
     symbols = collect(symbols_set)
 
     models = PartialModel[]
-
     while true
         model = dpll(clauses, symbols, Dict{Formula,Bool}())
         isa(model, Dict) || break
@@ -95,6 +94,6 @@ function find_all_models(ψ::Formula)
         # add negation of the found model to the clauses of ψ
         push!(clauses, reduce(|, (value ? ~symbol : symbol for (symbol, value) in model); init=FALSE))
     end
-    
+
     return ModelIterator(models)
 end

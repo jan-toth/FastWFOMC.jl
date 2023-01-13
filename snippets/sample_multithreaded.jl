@@ -12,11 +12,7 @@ Pkg.activate("."; io=devnull)
 
 using FastWFOMC
 
-function process_sentences(file=ARGS[1], limit_sec=30)
-    if length(ARGS) > 1 
-        limit_sec = parse(Int, ARGS[2])
-    end
-    
+function process_sentences(file=ARGS[1])
     lines = String[]
     open(file) do fr
         append!(lines, readlines(fr))
@@ -27,7 +23,7 @@ function process_sentences(file=ARGS[1], limit_sec=30)
     Threads.@threads for i in eachindex(lines)
         line = lines[i]
         startswith(line, '#') && continue
-        sentences[i] = get_cg_limited(line, limit)
+        sentences[i] = get_cell_graph(line)
     end
 
     for sentence in sentences
@@ -36,23 +32,7 @@ function process_sentences(file=ARGS[1], limit_sec=30)
     end
 end
 
-function get_cg_limited(line, limit)
-    if limit < 0
-        return get_cell_graph(line)
-    else
-        tsk = @task get_cell_graph(line)
-        schedule(tsk)
-
-        Timer(limit) do timer
-            istaskdone(tsk) || Base.throwto(tsk, InterruptException())
-        end
-        
-        try
-            return fetch(tsk)
-        catch _
-            return "[]"
-        end
-    end
-end
-
 process_sentences()
+
+
+
