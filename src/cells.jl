@@ -170,7 +170,9 @@ function _build_herbrand_base(preds, vars=[Variable("x"), Variable("y")])
     hb = []
 
     for (symbol, arity) in preds
-        if arity == 1
+        if arity == 0
+            push!(hb, Expression(symbol))
+        elseif rity == 1
             push!(hb, Expression(symbol, (vars[1],)))
             push!(hb, Expression(symbol, (vars[2],)))
         elseif arity == 2
@@ -179,7 +181,7 @@ function _build_herbrand_base(preds, vars=[Variable("x"), Variable("y")])
             push!(hb, Expression(symbol, (vars[2],vars[1])))
             push!(hb, Expression(symbol, (vars[2],vars[2])))
         else
-            error("Unsupported arity")
+            error("Unsupported arity: $arity for predicate '$symbol'")
         end
     end
 
