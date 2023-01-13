@@ -130,6 +130,9 @@ function compute_cell_interactions(ψ::Formula, weights::WFOMCWeights, cells)
 
     R = zeros(weights, ncells, ncells)
     φ = ψ & substitute(Dict(Formula("x") => Formula("y"), Formula("y") => Formula("x")), ψ)
+    
+    hb = _build_herbrand_base(predicate_symbols(ψ))
+    
     for i in 1:ncells
         cellY = substitute(substitution, xcells_cache[i])
         ψᵢ = φ & cellY
@@ -137,11 +140,61 @@ function compute_cell_interactions(ψ::Formula, weights::WFOMCWeights, cells)
         for j = i:ncells
             cellX = xcells_cache[j]
             ψᵢⱼ = ψᵢ & cellX
-            R[j, i] = wmc(ψᵢⱼ, weights; evidence = condition_props)
+
+            # ====
+            # WMC computation
+            r = zero(weights)
+
+            for model in find_all_models(ψᵢⱼ)
+                model_weight = one(weights)
+
+                for (symbol, value) in model
+                    if symbol ∉ condition_props
+                        model_weight *= weights[(symbol.operator, length(symbol.arguments))][value ? 1 : 2]
+                    end
+                end
+
+                factor = _get_factor_over_missing_atoms(setdiff(hb, keys(model)), weights)
+                r += factor * model_weight
+            end
+            # ====
+
+            R[j, i] = r
         end
     end
 
     return Symmetric(R, 'L')
+end
+
+function _build_herbrand_base(preds, vars=[Variable("x"), Variable("y")])
+    hb = []
+
+    for (symbol, arity) in preds
+        if arity == 1
+            push!(hb, Expression(symbol, (vars[1],)))
+            push!(hb, Expression(symbol, (vars[2],)))
+        elseif arity == 2
+            push!(hb, Expression(symbol, (vars[1],vars[1])))
+            push!(hb, Expression(symbol, (vars[1],vars[2])))
+            push!(hb, Expression(symbol, (vars[2],vars[1])))
+            push!(hb, Expression(symbol, (vars[2],vars[2])))
+        else
+            error("Unsupported arity")
+        end
+    end
+
+    return Set(hb)
+end
+
+function _get_factor_over_missing_atoms(missing_atoms, weights)
+    factor = one(weights)
+
+    for atom in missing_atoms
+        pred = (atom.operator, length(atom.arguments))
+        factor *= sum(weights[pred])
+    end
+
+    return factor
 end
 
 """
