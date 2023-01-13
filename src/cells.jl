@@ -172,7 +172,7 @@ function _build_herbrand_base(preds, vars=[Variable("x"), Variable("y")])
     for (symbol, arity) in preds
         if arity == 0
             push!(hb, Expression(symbol))
-        elseif rity == 1
+        elseif arity == 1
             push!(hb, Expression(symbol, (vars[1],)))
             push!(hb, Expression(symbol, (vars[2],)))
         elseif arity == 2
