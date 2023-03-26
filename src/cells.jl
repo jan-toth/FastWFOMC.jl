@@ -389,6 +389,10 @@ function get_cell_graph(ψ::AbstractString)
 end
 
 
+function get_condensed_cell_graph_unskolemized(ψ::AbstractString)
+    _get_cell_graph(ψ, condense=true)
+end
+
 """
     get_cell_graph(ψ::AbstractString)
 
@@ -397,6 +401,10 @@ for unitary weights (1, 1) for all the occuring predicates except for those assu
 Predicates starting with 'S' are assumed to be Skolem predicates and their weights are set to (1,-1).
 """
 function get_cell_graph_unskolemized(ψ::AbstractString)
+    _get_cell_graph(ψ, condense=false)
+end
+
+function _get_cell_graph(ψ::AbstractString; condense=false)
     skolem = skolemize_theory(ψ)
 
     φ = reduce(&, skolem[1])
@@ -409,7 +417,7 @@ function get_cell_graph_unskolemized(ψ::AbstractString)
 
     ccs = skolem[3]
 
-    isempty(ccs) || return _get_symbolic_cell_graph(φ, weights, ccs)
+    isempty(ccs) || return _get_symbolic_cell_graph(φ, weights, ccs; condense)
         
     weights = WFOMCWeights{BigInt}(weights)
     props = []
@@ -428,7 +436,7 @@ function get_cell_graph_unskolemized(ψ::AbstractString)
     end
 
     if length(props) == 0
-        cg = _get_one_cell_graph(φ, weights)
+        cg = _get_one_cell_graph(φ, weights; condense)
         cg === nothing && return "[]"
         return "[W(1)," * cg * "]"
     end
@@ -438,7 +446,7 @@ function get_cell_graph_unskolemized(ψ::AbstractString)
         subs = Dict(pred => val for (pred, val) in zip(props, valuation))
         multiplier = prod(weights[pred][val == TRUE ? 1 : 2] for (pred, val) in pairs(subs); init=one(weights))
 
-        cg = _get_one_cell_graph(replace_subformula(φ, subs), weights)
+        cg = _get_one_cell_graph(replace_subformula(φ, subs), weights; condense)
         cg === nothing && continue
         push!(cgs, "W($multiplier), " * cg)
     end
@@ -446,7 +454,7 @@ function get_cell_graph_unskolemized(ψ::AbstractString)
     return "[" * join(cgs, "; ") * "]"
 end
 
-function _get_symbolic_cell_graph(φ, weights, ccs)
+function _get_symbolic_cell_graph(φ, weights, ccs; condense=false)
 
     ring, vars = PolynomialRing(QQ, length(ccs))
 
@@ -476,7 +484,7 @@ function _get_symbolic_cell_graph(φ, weights, ccs)
         end
 
         if length(props) == 0
-            cg = _get_one_symbolic_cell_graph(φ, weights)
+            cg = _get_one_symbolic_cell_graph(φ, weights; condense)
             cg === nothing && return "[]"
             return "[W(1)," * cg * "]"
         end
@@ -486,7 +494,7 @@ function _get_symbolic_cell_graph(φ, weights, ccs)
             subs = Dict(pred => val for (pred, val) in zip(props, valuation))
             multiplier = prod(weights[pred][val == TRUE ? 1 : 2] for (pred, val) in pairs(subs); init=one(weights))
 
-            cg = _get_one_symbolic_cell_graph(replace_subformula(φ, subs), weights)
+            cg = _get_one_symbolic_cell_graph(replace_subformula(φ, subs), weights; condense)
             cg === nothing && continue
             push!(cgs, "W($multiplier), " * cg)
         end
@@ -495,15 +503,33 @@ function _get_symbolic_cell_graph(φ, weights, ccs)
     end
 end
 
-function _get_one_cell_graph(φ::Formula, weights::WFOMCWeights)
+function _get_one_cell_graph(φ::Formula, weights::WFOMCWeights; condense=false)
     cg = build_cell_graph(φ, weights)
     cg === nothing && return nothing
-    
-    cells, R, w = cg
-    cell_names = ['n' * "$(i)" for i in eachindex(cells)]
 
-    loops = ["L($name, $(rii), $(wi))" for (name, rii, wi) in zip(cell_names, R[CartesianIndex.(axes(R)...)], w)]
-    edges = ["E($(cell_names[i]), $(cell_names[j]), $(R[i, j]))" for i in 1:length(cells) for j in (i+1):length(cells)]
+    if condense
+        cliques = find_symmetric_cliques(cg)
+
+        cell_names = ['n' * "$(i)" for i in eachindex(cliques)]
+        
+        loops = Vector{Any}(undef, length(cell_names))
+        for (idx, (name, cl)) in enumerate(zip(cell_names, cliques))
+            k = length(cl.indices)
+            if k > 1
+                loops[idx] = "C($name, $(cl.w), $(cl.s), $k, $(cl.r))"
+            else
+                loops[idx] = "L($name, $(cl.w), $(cl.s))"
+            end
+        end
+
+        edges = ["E($(cell_names[i]), $(cell_names[j]), $(cg.R[cliques[i].indices |> first, cliques[j].indices |> first]))" for i in 1:length(cliques) for j in (i+1):length(cliques)]
+    else
+        cells, R, w = cg
+        cell_names = ['n' * "$(i)" for i in eachindex(cells)]
+
+        loops = ["L($name, $(wi), $(rii))" for (name, rii, wi) in zip(cell_names, R[CartesianIndex.(axes(R)...)], w)]
+        edges = ["E($(cell_names[i]), $(cell_names[j]), $(R[i, j]))" for i in 1:length(cells) for j in (i+1):length(cells)]
+    end
 
     str = ""
     if length(loops) > 0
@@ -518,17 +544,34 @@ function _get_one_cell_graph(φ::Formula, weights::WFOMCWeights)
 
 end
 
-function _get_one_symbolic_cell_graph(φ::Formula, weights::WFOMCWeights)
+function _get_one_symbolic_cell_graph(φ::Formula, weights::WFOMCWeights; condense=false)
     cg = build_cell_graph(φ, weights)
     cg === nothing && return nothing
-    
-    cells, R, w = cg
-    cell_names = ['n' * "$(i)" for i in eachindex(cells)]
 
-    loops = ["L($name, $(_fmpq2string(rii)), $(_fmpq2string(wi)))" for (name, rii, wi) in zip(cell_names, R[CartesianIndex.(axes(R)...)], w)]
-    edges = ["E($(cell_names[i]), $(cell_names[j]), $(_fmpq2string(R[i, j])))" for i in 1:length(cells) for j in (i+1):length(cells)]
-    # loops = ["L($name, $((rii)), $((wi)))" for (name, rii, wi) in zip(cell_names, R[CartesianIndex.(axes(R)...)], w)]
-    # edges = ["E($(cell_names[i]), $(cell_names[j]), $((R[i, j])))" for i in 1:length(cells) for j in (i+1):length(cells)]
+    if condense
+        cliques = find_symmetric_cliques(cg)
+
+        cell_names = ['n' * "$(i)" for i in eachindex(cliques)]
+        # loops = ["L($name, $(length(cl.indices)), $(cl.w |> _fmpq2string), $(cl.s |> _fmpq2string), $(cl.r |> _fmpq2string))"  for (name, cl) in zip(cell_names, cliques)]
+        loops = Vector{Any}(undef, length(cell_names))
+        for (idx, (name, cl)) in enumerate(zip(cell_names, cliques))
+            k = length(cl.indices)
+            if k > 1
+                loops[idx] = "C($name, $(cl.w), $(cl.s), $k, $(cl.r))"
+            else
+                loops[idx] = "L($name, $(cl.w), $(cl.s))"
+            end
+        end
+        edges = ["E($(cell_names[i]), $(cell_names[j]), $(cg.R[cliques[i].indices |> first, cliques[j].indices |> first] |> _fmpq2string))" for i in 1:length(cliques) for j in (i+1):length(cliques)]
+    else
+        cells, R, w = cg
+        cell_names = ['n' * "$(i)" for i in eachindex(cells)]
+
+        loops = ["L($name, $(_fmpq2string(wi))), $(_fmpq2string(rii))" for (name, rii, wi) in zip(cell_names, R[CartesianIndex.(axes(R)...)], w)]
+        edges = ["E($(cell_names[i]), $(cell_names[j]), $(_fmpq2string(R[i, j])))" for i in 1:length(cells) for j in (i+1):length(cells)]
+        # loops = ["L($name, $((rii)), $((wi)))" for (name, rii, wi) in zip(cell_names, R[CartesianIndex.(axes(R)...)], w)]
+        # edges = ["E($(cell_names[i]), $(cell_names[j]), $((R[i, j])))" for i in 1:length(cells) for j in (i+1):length(cells)]
+    end
 
     str = ""
     if length(loops) > 0

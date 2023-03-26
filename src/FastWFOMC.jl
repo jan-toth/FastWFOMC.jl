@@ -15,7 +15,7 @@ export compute_wfomc, compute_wfomc_unskolemized, WFOMCWeights, CardinalityConst
 export NoOptFastWFOMCAlgorithm, FastWFOMCAlgorithm
 export fill_missing_weights!
 export Formula, parse_formula, is_satisfiable
-export get_cell_graph, get_cell_graph_unskolemized, get_skolemized_formula
+export get_cell_graph, get_cell_graph_unskolemized, get_condensed_cell_graph_unskolemized, get_skolemized_formula
 
 include("logic/logic.jl")
 include("logic/reductions.jl")
