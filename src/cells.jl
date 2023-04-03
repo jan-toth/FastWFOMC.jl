@@ -557,9 +557,9 @@ function _get_one_symbolic_cell_graph(φ::Formula, weights::WFOMCWeights; conden
         for (idx, (name, cl)) in enumerate(zip(cell_names, cliques))
             k = length(cl.indices)
             if k > 1
-                loops[idx] = "C($name, $(cl.w), $(cl.s), $k, $(cl.r))"
+                loops[idx] = "C($name, $(cl.w |> _fmpq2string), $(cl.s |> _fmpq2string), $k, $(cl.r |> _fmpq2string))"
             else
-                loops[idx] = "L($name, $(cl.w), $(cl.s))"
+                loops[idx] = "L($name, $(cl.w |> _fmpq2string), $(cl.s |> _fmpq2string))"
             end
         end
         edges = ["E($(cell_names[i]), $(cell_names[j]), $(cg.R[cliques[i].indices |> first, cliques[j].indices |> first] |> _fmpq2string))" for i in 1:length(cliques) for j in (i+1):length(cliques)]
