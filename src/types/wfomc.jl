@@ -12,11 +12,7 @@ struct WFOMC{T<:WFOMCWeightsType}
         domsize < 0 && throw(DomainError("Domain size must be non-negative! It was $domsize."))
         _check_weights(weights, ψ) || throw(ArgumentError("Some predicates have unset weights!"))
 
-        # standardize variable names to 'x' and 'y'
-        vars = variables(ψ)
-        length(vars) <= 2 || error("No more than two variables are supported.")
-        ϕ = substitute(Dict(var => val for (var, val) in zip(vars, [Variable("x"), Variable("y")])), ψ)
-        return new{T}(ϕ, domsize, weights)
+        return new{T}(ψ, domsize, weights)
     end
 end
 
@@ -53,12 +49,15 @@ Base.one(wfomc::WFOMC) = one(weights(wfomc))
 Base.ones(wfomc::WFOMC, dims...) = ones(weights(wfomc), dims...)
 
 function _check_weights(weights::WFOMCWeights{T}, ψ::Expression) where {T}
-    for pred in predicate_symbols(ψ)
-        if !haskey(weights, pred)
-            @warn "Weights unset for symbol \'$pred\'."
+    for (symbol, _) in predicate_symbols(ψ)
+        if !haskey(weights, symbol)
+            @warn "Weights unset for symbol \"$symbol\"."
             return false
         end
     end
 
     return true
 end
+
+
+

@@ -23,16 +23,17 @@ using Nemo
         @testset "Number of connected undirected graphs" begin
             include("fast_wfomc/undirected_connected_graphs.jl")
         end
-
-        @testset "Miscellaneous" begin
-            include("fast_wfomc/misc.jl")
-        end
     end
 
     @testset "WFOMC with CCs" begin
-        # @testset "Number of three-regular graphs" begin
-        #     include("ccs/three_regular_graphs.jl")
-        # end
-        include("ccs/counting.jl")
+        @testset "Number of three-regular graphs" begin
+            include("ccs/three_regular_graphs.jl")
+        end
+    end
+
+    @testset "WFOMC with LO" begin
+        @testset "Subsequences" begin
+            include("linear_order/subsequences.jl")
+        end
     end
 end

@@ -97,9 +97,6 @@ The cell graph is represented as a named tuple containing:
 """
 function build_cell_graph(ψ::Formula, weights::WFOMCWeights)
     cells = build_valid_cells(ψ)
-    if length(cells) == 0
-        return nothing
-    end
 
     w = compute_cell_weights(weights, cells)
     R = compute_cell_interactions(ψ, weights, cells)
@@ -112,7 +109,7 @@ function compute_cell_weights(weights::WFOMCWeights, cells)
     for (k, cell) in enumerate(cells)
         wmc = one(weights)
         for (symbol, value) in zip(cell.atoms, cell.interpretation)
-            wmc *= weights[(symbol.operator, length(symbol.arguments))][value ? 1 : 2]
+            wmc *= weights[symbol.operator][value ? 1 : 2]
         end
         w[k] = wmc
     end
@@ -129,10 +126,7 @@ function compute_cell_interactions(ψ::Formula, weights::WFOMCWeights, cells)
     ncells = length(cells)
 
     R = zeros(weights, ncells, ncells)
-    φ = ψ & substitute(Dict(Formula("x") => Formula("y"), Formula("y") => Formula("x")), ψ)
-    
-    hb = _build_herbrand_base(predicate_symbols(ψ))
-    
+    φ = ψ & substitute(Dict(Formula("x") => Formula("y"), Formula("y") => Formula("x")), ψ) 
     for i in 1:ncells
         cellY = substitute(substitution, xcells_cache[i])
         ψᵢ = φ & cellY
@@ -140,63 +134,11 @@ function compute_cell_interactions(ψ::Formula, weights::WFOMCWeights, cells)
         for j = i:ncells
             cellX = xcells_cache[j]
             ψᵢⱼ = ψᵢ & cellX
-
-            # ====
-            # WMC computation
-            r = zero(weights)
-
-            for model in find_all_models(ψᵢⱼ)
-                model_weight = one(weights)
-
-                for (symbol, value) in model
-                    if symbol ∉ condition_props
-                        model_weight *= weights[(symbol.operator, length(symbol.arguments))][value ? 1 : 2]
-                    end
-                end
-
-                factor = _get_factor_over_missing_atoms(setdiff(hb, keys(model)), weights)
-                r += factor * model_weight
-            end
-            # ====
-
-            R[j, i] = r
+            R[j, i] = wmc(ψᵢⱼ, weights; evidence = condition_props)
         end
     end
 
     return Symmetric(R, 'L')
-end
-
-function _build_herbrand_base(preds, vars=[Variable("x"), Variable("y")])
-    hb = []
-
-    for (symbol, arity) in preds
-        if arity == 0
-            push!(hb, Expression(symbol))
-        elseif arity == 1
-            push!(hb, Expression(symbol, (vars[1],)))
-            push!(hb, Expression(symbol, (vars[2],)))
-        elseif arity == 2
-            push!(hb, Expression(symbol, (vars[1],vars[1])))
-            push!(hb, Expression(symbol, (vars[1],vars[2])))
-            push!(hb, Expression(symbol, (vars[2],vars[1])))
-            push!(hb, Expression(symbol, (vars[2],vars[2])))
-        else
-            error("Unsupported arity: $arity for predicate '$symbol'")
-        end
-    end
-
-    return Set(hb)
-end
-
-function _get_factor_over_missing_atoms(missing_atoms, weights)
-    factor = one(weights)
-
-    for atom in missing_atoms
-        pred = (atom.operator, length(atom.arguments))
-        factor *= sum(weights[pred])
-    end
-
-    return factor
 end
 
 """
@@ -227,7 +169,7 @@ function find_symmetric_cliques(cell_graph)
     cell_indices = Set(eachindex(cell_graph.cells))
     while length(cell_indices) > 0
         cell_idx = pop!(cell_indices)
-        clique = (indices=Set(cell_idx), w=cell_graph.w[cell_idx], s=cell_graph.R[cell_idx, cell_idx], r=one(cell_graph.w[cell_idx]))
+        clique = (indices=Set([cell_idx]), w=cell_graph.w[cell_idx], s=cell_graph.R[cell_idx, cell_idx], r=one(cell_graph.w[cell_idx]))
 
         for cell_idx in cell_indices
             if _is_clique_compatible(cell_idx, clique, cell_graph)
@@ -240,14 +182,7 @@ function find_symmetric_cliques(cell_graph)
             clique = (clique.indices, clique.w, clique.s, r=cell_graph.R[first(clique.indices, 2)...])
         end
 
-        if iszero(clique.r)
-            # if the r-value is zero, then do not form the clique
-            for idx in clique.indices
-                push!(cliques, (indices=Set(idx), clique.w, clique.s, r=one(clique.r)))
-            end
-        else
-            push!(cliques, clique)
-        end
+        push!(cliques, clique)
     end
 
     return cliques
@@ -294,10 +229,6 @@ See also: [`build_cell_graph`](@ref), [`find_symmetric_cliques`](@ref)
 """
 function build_collapsed_cell_graph(ψ::Formula, weights::WFOMCWeights)
     cell_graph = build_cell_graph(ψ, weights)
-    if cell_graph === nothing
-        return nothing
-    end
-
     return collapse_cell_graph(cell_graph)
 end
 
@@ -342,304 +273,3 @@ function collapse_cell_graph(cell_graph)
     R = Symmetric(R, 'L')
     return (cells=cell_graph.cells, cliques, R)
 end
-
-
-"""
-    get_cell_graph(ψ::AbstractString)
-Given a string describing a formula, return serialized cell graph of the formula
-for unitary weights (1, 1) for all the occuring predicates except for those assumed to be Skolem predicates.
-Predicates starting with 'S' are assumed to be Skolem predicates and their weights are set to (1,-1).
-"""
-function get_cell_graph(ψ::AbstractString)
-    φ = parse_formula(ψ)
-    
-    weights = WFOMCWeights{BigInt}()
-    props = []
-
-    for pred in predicate_symbols(φ)
-        if pred[2] == 0
-            # 0-arity predicate
-            push!(props, pred)
-        end
-        
-        if startswith(pred[1], "S")
-            weights[pred] = (1, -1)
-        else
-            weights[pred] = (1, 1)
-        end
-    end
-
-    if length(props) == 0
-        cg = _get_one_cell_graph(φ, weights)
-        cg === nothing && return "[]"
-        return "[W(1)," * cg * "]"
-    end
-
-    cgs = []
-    for valuation in Iterators.product(ntuple(i -> (TRUE, FALSE), length(props))...)
-        subs = Dict(pred => val for (pred, val) in zip(props, valuation))
-        multiplier = prod(weights[pred][val == TRUE ? 1 : 2] for (pred, val) in pairs(subs); init=one(weights))
-
-        cg = _get_one_cell_graph(replace_subformula(φ, subs), weights)
-        cg === nothing && continue
-        push!(cgs, "W($multiplier), " * cg)
-    end
-    
-    return "[" * join(cgs, "; ") * "]"
-end
-
-
-function get_condensed_cell_graph_unskolemized(ψ::AbstractString)
-    _get_cell_graph(ψ, condense=true)
-end
-
-"""
-    get_cell_graph(ψ::AbstractString)
-
-Given a string describing a formula, return serialized cell graph of the formula
-for unitary weights (1, 1) for all the occuring predicates except for those assumed to be Skolem predicates.
-Predicates starting with 'S' are assumed to be Skolem predicates and their weights are set to (1,-1).
-"""
-function get_cell_graph_unskolemized(ψ::AbstractString)
-    _get_cell_graph(ψ, condense=false)
-end
-
-function _get_cell_graph(ψ::AbstractString; condense=false)
-    skolem = skolemize_theory(ψ)
-
-    φ = reduce(&, skolem[1])
-    weights = skolem[2]
-    for pred in predicate_symbols(φ)
-        haskey(weights, pred) && continue
-        weights[pred] = (1, 1)
-    end
-
-
-    ccs = skolem[3]
-
-    isempty(ccs) || return _get_symbolic_cell_graph(φ, weights, ccs; condense)
-        
-    weights = WFOMCWeights{BigInt}(weights)
-    props = []
-
-    for pred in predicate_symbols(φ)
-        if pred[2] == 0
-            # 0-arity predicate
-            push!(props, pred)
-        end
-        
-        if startswith(pred[1], "S")
-            weights[pred] = (1, -1)
-        else
-            weights[pred] = (1, 1)
-        end
-    end
-
-    if length(props) == 0
-        cg = _get_one_cell_graph(φ, weights; condense)
-        cg === nothing && return "[]"
-        return "[W(1), " * cg * "]"
-    end
-
-    cgs = []
-    for valuation in Iterators.product(ntuple(i -> (TRUE, FALSE), length(props))...)
-        subs = Dict(pred => val for (pred, val) in zip(props, valuation))
-        multiplier = prod(weights[pred][val == TRUE ? 1 : 2] for (pred, val) in pairs(subs); init=one(weights))
-
-        cg = _get_one_cell_graph(replace_subformula(φ, subs), weights; condense)
-        cg === nothing && continue
-        push!(cgs, "W($multiplier), " * cg)
-    end
-    
-    return "[" * join(cgs, "; ") * "]"
-end
-
-function _get_symbolic_cell_graph(φ, weights, ccs; condense=false)
-
-    ring, vars = PolynomialRing(QQ, length(ccs))
-
-    w⁺ = WFOMCWeights{fmpq_mpoly}()
-    for (pred, (w, w̄)) in weights
-        w⁺[pred] = PredicateWeights(ring(w), ring(w̄))
-    end
-
-    for (i, (xᵢ, cc)) in enumerate(zip(vars, ccs))
-        w⁺[cc.pred] = PredicateWeights(xᵢ, one(ring))
-    end
-
-
-    weights = w⁺
-    props = []
-
-    for pred in predicate_symbols(φ)
-        if pred[2] == 0
-            # 0-arity predicate
-            push!(props, pred)
-        end
-        
-        if startswith(pred[1], "S")
-            weights[pred] = (ring(1), ring(-1))
-        else
-            weights[pred] = (ring(1), ring(1))
-        end
-
-        if length(props) == 0
-            cg = _get_one_symbolic_cell_graph(φ, weights; condense)
-            cg === nothing && return "[]"
-            return "[W(1), " * cg * "]"
-        end
-
-        cgs = []
-        for valuation in Iterators.product(ntuple(i -> (TRUE, FALSE), length(props))...)
-            subs = Dict(pred => val for (pred, val) in zip(props, valuation))
-            multiplier = prod(weights[pred][val == TRUE ? 1 : 2] for (pred, val) in pairs(subs); init=one(weights))
-
-            cg = _get_one_symbolic_cell_graph(replace_subformula(φ, subs), weights; condense)
-            cg === nothing && continue
-            push!(cgs, "W($multiplier), " * cg)
-        end
-
-        return "[" * join(cgs, "; ") * "]"
-    end
-end
-
-function _get_one_cell_graph(φ::Formula, weights::WFOMCWeights; condense=false)
-    cg = build_cell_graph(φ, weights)
-    cg === nothing && return nothing
-
-    if condense
-        cliques = find_symmetric_cliques(cg)
-
-        cell_names = ['n' * "$(i)" for i in eachindex(cliques)]
-        
-        loops = Vector{Any}(undef, length(cell_names))
-        for (idx, (name, cl)) in enumerate(zip(cell_names, cliques))
-            k = length(cl.indices)
-            if k > 1
-                loops[idx] = "C($name, $(cl.w), $(cl.s), $k, $(cl.r))"
-            else
-                loops[idx] = "L($name, $(cl.w), $(cl.s))"
-            end
-        end
-
-        edges = ["E($(cell_names[i]), $(cell_names[j]), $(cg.R[cliques[i].indices |> first, cliques[j].indices |> first]))" for i in 1:length(cliques) for j in (i+1):length(cliques)]
-    else
-        cells, R, w = cg
-        cell_names = ['n' * "$(i)" for i in eachindex(cells)]
-
-        loops = ["L($name, $(wi), $(rii))" for (name, rii, wi) in zip(cell_names, R[CartesianIndex.(axes(R)...)], w)]
-        edges = ["E($(cell_names[i]), $(cell_names[j]), $(R[i, j]))" for i in 1:length(cells) for j in (i+1):length(cells)]
-    end
-
-    str = ""
-    if length(loops) > 0
-        str *= join(loops, ", ")
-
-        if length(edges) > 0
-            str *= ", " * join(edges, ", ")
-        end
-    end
-
-    return str
-
-end
-
-function _get_one_symbolic_cell_graph(φ::Formula, weights::WFOMCWeights; condense=false)
-    cg = build_cell_graph(φ, weights)
-    cg === nothing && return nothing
-
-    if condense
-        cliques = find_symmetric_cliques(cg)
-
-        cell_names = ['n' * "$(i)" for i in eachindex(cliques)]
-        # loops = ["L($name, $(length(cl.indices)), $(cl.w |> _fmpq2string), $(cl.s |> _fmpq2string), $(cl.r |> _fmpq2string))"  for (name, cl) in zip(cell_names, cliques)]
-        loops = Vector{Any}(undef, length(cell_names))
-        for (idx, (name, cl)) in enumerate(zip(cell_names, cliques))
-            k = length(cl.indices)
-            if k > 1
-                loops[idx] = "C($name, $(cl.w |> _fmpq2string), $(cl.s |> _fmpq2string), $k, $(cl.r |> _fmpq2string))"
-            else
-                loops[idx] = "L($name, $(cl.w |> _fmpq2string), $(cl.s |> _fmpq2string))"
-            end
-        end
-        edges = ["E($(cell_names[i]), $(cell_names[j]), $(cg.R[cliques[i].indices |> first, cliques[j].indices |> first] |> _fmpq2string))" for i in 1:length(cliques) for j in (i+1):length(cliques)]
-    else
-        cells, R, w = cg
-        cell_names = ['n' * "$(i)" for i in eachindex(cells)]
-
-        loops = ["L($name, $(_fmpq2string(wi)), $(_fmpq2string(rii)))" for (name, rii, wi) in zip(cell_names, R[CartesianIndex.(axes(R)...)], w)]
-        edges = ["E($(cell_names[i]), $(cell_names[j]), $(_fmpq2string(R[i, j])))" for i in 1:length(cells) for j in (i+1):length(cells)]
-        # loops = ["L($name, $((rii)), $((wi)))" for (name, rii, wi) in zip(cell_names, R[CartesianIndex.(axes(R)...)], w)]
-        # edges = ["E($(cell_names[i]), $(cell_names[j]), $((R[i, j])))" for i in 1:length(cells) for j in (i+1):length(cells)]
-    end
-
-    str = ""
-    if length(loops) > 0
-        str *= join(loops, ", ")
-
-        if length(edges) > 0
-            str *= ", " * join(edges, ", ")
-        end
-    end
-
-    return str
-
-end
-
-function _fmpq2string(poly)
-    if isconstant(poly)
-        return string(poly)
-    else
-        return "'" * string(poly) * "'"
-    end
-end
-
-# function _fmpq2string(poly)
-#     ts = []
-#     for t in terms(poly)
-#         strs = split(string(t), " + ")
-        
-
-#         for str in strs
-#             push!(ts, _process_term(str))
-#         end
-#     end
-
-#     return join(ts, " + ")
-# end
-
-# function _process_term(term)
-#     factors = []
-#     strs = split(term, "*")
-
-#     if isdigit(strs[1] |> first)
-#         push!(factors, strs[1])
-#     else
-#         push!(factors, _process_var(strs[1]))
-#     end
-    
-#     if length(strs) > 1
-#         for str in strs[2:end]
-#             push!(factors, _process_var(str))
-#         end
-#     end
-    
-#     return join(factors, "*")
-# end
-
-# function _process_var(var)
-#     if startswith(var, '-')
-#         pre = "-"
-#         var = var[2:end]
-#     else
-#         pre = ""
-#     end
-
-#     spl = split(var, '^')
-#     if length(spl) > 1
-#         x, power = spl
-#         return pre * "'" * x * "'" * "^" * power
-#     else
-#         return pre * "'" * var * "'"
-#     end
-# end

@@ -1,11 +1,10 @@
 # Fast WFOMC
 
-Implementation of FastWFOMC algorithm (https://ida.fel.cvut.cz/~kuzelka/pubs/van-bremen_535.pdf) in pure Julia for C2 (FO2 + counting quantifiers).
-See also https://jair.org/index.php/jair/article/view/12320/26673.
+Implementation of FastWFOMC algorithm (https://ida.fel.cvut.cz/~kuzelka/pubs/van-bremen_535.pdf) in pure Julia.
 
-The implementation does not perform knowledge compilation since [dsharp](https://github.com/QuMuLab/dsharp) is not platform-independent.
+The implementation does not perform knowledge compilation since there is no tool for that task available in Julia.
 Instead, the program uses a (naive) SAT solver to enumerate all models.
-However, for larger domains, the SAT solving has never been the bottleneck.
+However, for larger domains, the SAT solving is nowhere near the bottleneck.
 
 # Running the Program
 
@@ -19,7 +18,16 @@ First, get **Julia** running! There are several options...
 
 ## Obtaining the source code
 
-The package is not registered on **JuliaHub**, so the source codes need to be obtained manually, such as cloning this repository or downloading its contents.
+The package is not (yet?) registered on **JuliaHub**, so the source codes need to be obtained manually.
+You shall need to be given access to them but since you are reading this, you are likely to have said access already
+(if you do not, GET OUT of my private files!).
+
+For example, you may do something like
+
+```shell
+$ git clone https://gitlab.fel.cvut.cz/tothjan2/fast-wfomc.git
+$ cd fast-wfomc
+```
 
 ## Instantiating the environments
 
@@ -39,7 +47,7 @@ Afterwards, just type in the instantiation command.
 
 ```julia
 julia> ]
-(FastWFOMC) pkg> instantiate
+(fast-wfomc) pkg> instantiate
 ...
 ```
 
@@ -53,7 +61,7 @@ You just have to instantiate it as well.
 For example:
 
 ```julia
-(FastWFOMC) pkg> activate scripts  # relative path
+(fast-wfomc) pkg> activate scripts  # relative path
 (scripts) pkg> instantiate
 ...
 (scripts) pkg> <BACKSPACE>
@@ -81,7 +89,7 @@ Type desired commands:
 
 ```julia
 julia> using FastWFOMC
-julia> five_coloured = parse_formula(
+julia> five_coloured = expr(
     "~E(x, x) & " *
     "(~E(x, y) | E(y, x)) & " *
     "(C1(x) | C2(x) | C3(x) | C4(x) | C5(x)) & " *
@@ -99,7 +107,7 @@ julia> five_coloured = parse_formula(
 );
 julia> compute_wfomc(five_coloured, 100)  # compute WFOMC with all weights set to 1
 46286...
-julia>three_regular = parse_formula(
+julia>three_regular = expr(
     "~E(x, x) & " *
     "(~E(x, y) | E(y, x)) & " *
     "(~F(x, y) | E(x, y)) & " *
@@ -121,7 +129,7 @@ julia> cc = CardinalityConstraint("F", 3n)
 julia> fill_missing_weights!(w, three_regular)  # sets all missing weights to one (to optional third argument)
 julia>
 julia> # Compute WFOMC with cardinality constraints
-julia> compute_wfomc(three_regular, n, w; ccs=[cc]) // factorial(big(3))^n  # 3265920 / (3!)^6  = 70
+julia> compute_wfomc(three_regular, n, w, [cc]) // factorial(big(3))^n  # 3265920 / (3!)^6  = 70
 ```
 
 ### Executing scripts depending on FastWFOMC
@@ -136,9 +144,8 @@ $ julia --project=scripts scripts/friends_smokers.jl
 ```
 
 ### Working with symbolic weights
-Under construction
 
-<!-- If you wish have symbolic weights on the input, the weight construction is a little bit more involved.
+If you wish have symbolic weights on the input, the weight construction is a little bit more involved.
 **FastWFOMC** uses [Nemo.jl](https://nemocas.github.io/Nemo.jl/dev/) package which offers Julia bindings for MPIR, Flint, Arb and Antic libraries.
 The current implementation can only handle weights in polynomial form.
 
@@ -171,7 +178,7 @@ We can, of course, go for larger domains, as well:
 
 ```julia
 julia> using Nemo, FastWFOMC
-julia> three_regular = parse_formula(
+julia> three_regular = expr(
            "~E(x, x) & " *
            "(~E(x, y) | E(y, x)) & " *
            "(~F(x, y) | E(x, y)) & " *
@@ -197,5 +204,15 @@ julia> @time compute_wfomc(three_regular, n, w, [cc])
     65.410560 seconds (36.61 M allocations: 1.858 GiB, 0.61% gc time, 7.48% compilation time)
 89778049701265937722543084795989213798864294652203308686325172979785629648796306050080623820800000*x1^120*x2^120
 julia> ans // factorial(big"3")^n
-``` 
--->
+```
+
+## A word of warning
+
+If you are not yet a _Julian_...
+
+Julia performs no implicit conversions.
+Some conversions may appear to happen implicitly but they are, in fact, delegated to a complex promotion system built into Julia.
+It might be driving you crazy at times that arguments keep having a wrong type.
+
+Once you run out of patience, you have basically two options.
+You may either give up and write your own piece of software, or just keep pushing through (e.g., by asking for help) - it WILL get easier ;).

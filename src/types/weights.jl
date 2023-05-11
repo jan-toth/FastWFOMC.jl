@@ -2,7 +2,7 @@ const _NemoPolynomial = Union{fmpz_poly,fmpq_poly,fmpz_mpoly,fmpq_mpoly}
 const _NemoNumber = Union{fmpz, fmpq}
 const _NemoType = Union{_NemoPolynomial, _NemoNumber}
 
-const WFOMCWeightsType = Union{Number, _NemoType}
+const WFOMCWeightsType = Union{Number, MP.AbstractPolynomialLike, _NemoType}
 
 
 """
@@ -61,9 +61,9 @@ in `weights`, to `val`.
 If `val` is unset, it defaults to one.
 """
 function fill_missing_weights!(weights::WFOMCWeights{T}, ψ::Formula, val::T = one(weights)) where {T}
-    for predicate in predicate_symbols(ψ)
-        if !haskey(weights, predicate)
-            weights[predicate] = PredicateWeights(val, val)
+    for (symbol, _) in predicate_symbols(ψ)
+        if !haskey(weights, symbol)
+            weights[symbol] = PredicateWeights(val, val)
         end
     end
 end
@@ -74,13 +74,13 @@ Base.one(x::_NemoPolynomial) = parent(x)(1)
 Base.:/(x::T, y::T) where {T<:_NemoType} = x // y
 
 
-Base.zero(::WFOMCWeights{T}) where {T<:Number} = zero(T)
+Base.zero(::WFOMCWeights{T}) where {T<:Union{Number, MP.AbstractPolynomialLike}} = zero(T)
 Base.zero(::WFOMCWeights{T}) where {T<:_NemoNumber} = T(0)
 Base.zero(weights::WFOMCWeights{T}) where {T<:_NemoPolynomial} = zero(_get_nemo_ring(weights))
 
 Base.zeros(weights::WFOMCWeights, dims...) = fill(zero(weights), dims...)
 
-Base.one(::WFOMCWeights{T}) where {T<:Number} = one(T)
+Base.one(::WFOMCWeights{T}) where {T<:Union{Number, MP.AbstractPolynomialLike}} = one(T)
 Base.one(::WFOMCWeights{T}) where {T<:_NemoNumber} = T(1)
 Base.one(weights::WFOMCWeights{T}) where {T<:_NemoPolynomial} = one(_get_nemo_ring(weights))
 

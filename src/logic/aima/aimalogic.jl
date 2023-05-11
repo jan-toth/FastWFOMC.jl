@@ -650,7 +650,7 @@ end
 
 function proposition_symbols(e::Expression)
     if (is_logic_proposition_symbol(e.operator))
-        return Set([e])
+        return [e]
     else
         symbols::Set{Expression} = Set{Expression}()
         for argument in e.arguments
@@ -1895,7 +1895,7 @@ function constant_symbols(e::Expression)
 end
 
 function predicate_symbols(e::Expression)
-    if (length(e.arguments) == 0 && !is_logic_proposition_symbol(e.operator))
+    if (length(e.arguments) == 0)
         return Set()
     end
     local predicate_set::Set

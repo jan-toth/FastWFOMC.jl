@@ -4,26 +4,13 @@ using .aimalogic
 const Formula = Expression
 const parse_formula = expr
 const Variable(name::String) = Formula(name)
-const Predicate = Tuple{String,Int}
+const Predicate = String # Tuple{String, Int}
 
 
 TRUE = Formula("TRUE")
 FALSE = Formula("FALSE")
 
-
-function is_satisfiable(ψ::Formula)
-    sat = dpll_satisfiable(ψ)
-    return sat !== false
-end
-
-function replace_subformula(ψ::Formula, d::Dict{Predicate, Formula})
-    pred = (ψ.operator, length(ψ.arguments))
-    if haskey(d, pred)
-        return d[pred]
-    else
-        return Formula(ψ.operator, [replace_subformula(arg, d) for arg in ψ.arguments]...)
-    end
-end
+export Formula, parse_formula
 
 
 """
@@ -72,7 +59,7 @@ end
 Base.IteratorEltype(::ModelIterator) = Base.HasEltype()
 Base.eltype(::ModelIterator) = Dict{Formula,Bool}
 Base.IteratorSize(::ModelIterator) = Base.HasLength()
-Base.length(iter::ModelIterator) = length(iter.partial_models) > 0 ? sum(2^length(m.unassigned_symbols) for m in iter.partial_models) : 0
+Base.length(iter::ModelIterator) = sum(2^length(m.unassigned_symbols) for m in iter.partial_models)
 
 function find_all_models(ψ::Formula)
     clauses = conjuncts(to_conjunctive_normal_form(ψ))
@@ -92,7 +79,7 @@ function find_all_models(ψ::Formula)
         push!(models, PartialModel(model, setdiff(symbols_set, keys(model))))
 
         # add negation of the found model to the clauses of ψ
-        push!(clauses, reduce(|, (value ? ~symbol : symbol for (symbol, value) in model); init=FALSE))
+        push!(clauses, reduce(|, (value ? ~symbol : symbol for (symbol, value) in model)))
     end
 
     return ModelIterator(models)

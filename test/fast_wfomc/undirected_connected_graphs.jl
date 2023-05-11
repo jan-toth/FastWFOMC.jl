@@ -14,7 +14,7 @@
 # )
 
 # eliminated Z(x) by unit propagation
-ψ = parse_formula(
+ψ = expr(
     "~E(x, x) & " *
     "(~E(x, y) | E(y, x)) &" *
     "(S(x) | ~E(x, y))"
@@ -22,7 +22,7 @@
 
 # Results taken from https://oeis.org/A006129
 @testset "$(typeof(algo))" for algo in [NoOptFastWFOMCAlgorithm(), FastWFOMCAlgorithm()]
-    weights = WFOMCWeights{BigInt}(("S", 1) => (1, -1))
+    weights = WFOMCWeights{BigInt}("S" => (1, -1))
     fill_missing_weights!(weights, ψ)
     @test compute_wfomc(ψ, 0, weights; algo) == 1
     @test compute_wfomc(ψ, 1, weights; algo) == 0
@@ -41,7 +41,7 @@
     @test compute_wfomc(ψ, 14, weights; algo) == 2471655539737552842139838345
     @test compute_wfomc(ψ, 15, weights; algo) == 40527712706903544101000417059892
 
-    weights = WFOMCWeights{fmpz}(("S", 1) => (1, -1))
+    weights = WFOMCWeights{fmpz}("S" => (1, -1))
     fill_missing_weights!(weights, ψ)
     @test compute_wfomc(ψ, 0, weights; algo) == 1
     @test compute_wfomc(ψ, 1, weights; algo) == 0
@@ -60,7 +60,7 @@
     @test compute_wfomc(ψ, 14, weights; algo) == 2471655539737552842139838345
     @test compute_wfomc(ψ, 15, weights; algo) == 40527712706903544101000417059892
 
-    weights = WFOMCWeights{fmpq}(("S", 1) => (1, -1))
+    weights = WFOMCWeights{fmpq}("S" => (1, -1))
     fill_missing_weights!(weights, ψ)
     @test compute_wfomc(ψ, 0, weights; algo) == 1
     @test compute_wfomc(ψ, 1, weights; algo) == 0
@@ -80,7 +80,7 @@
     @test compute_wfomc(ψ, 15, weights; algo) == 40527712706903544101000417059892
 
     px, x = PolynomialRing(QQ, "x")
-    weights = WFOMCWeights{fmpq_poly}(("S", 1) => (px(1), px(-1)))
+    weights = WFOMCWeights{fmpq_poly}("S" => (px(1), px(-1)))
     fill_missing_weights!(weights, ψ)
     @test compute_wfomc(ψ, 0, weights; algo) == 1
     @test compute_wfomc(ψ, 1, weights; algo) == 0
@@ -100,7 +100,7 @@
     @test compute_wfomc(ψ, 15, weights; algo) == 40527712706903544101000417059892
 
     px, x = PolynomialRing(ZZ, "x")
-    weights = WFOMCWeights{fmpz_poly}(("S", 1) => (px(1), px(-1)))
+    weights = WFOMCWeights{fmpz_poly}("S" => (px(1), px(-1)))
     fill_missing_weights!(weights, ψ)
     @test compute_wfomc(ψ, 0, weights; algo) == 1
     @test compute_wfomc(ψ, 1, weights; algo) == 0
@@ -120,7 +120,7 @@
     @test compute_wfomc(ψ, 15, weights; algo) == 40527712706903544101000417059892
 
     poly, vars = PolynomialRing(QQ, ["x", "y"])
-    weights = WFOMCWeights{fmpq_mpoly}(("S", 1) => (poly(1), poly(-1)))
+    weights = WFOMCWeights{fmpq_mpoly}("S" => (poly(1), poly(-1)))
     fill_missing_weights!(weights, ψ)
     @test compute_wfomc(ψ, 0, weights; algo) == 1
     @test compute_wfomc(ψ, 1, weights; algo) == 0
@@ -140,7 +140,7 @@
     @test compute_wfomc(ψ, 15, weights; algo) == 40527712706903544101000417059892
 
     poly, vars = PolynomialRing(ZZ, ["x", "y"])
-    weights = WFOMCWeights{fmpz_mpoly}(("S", 1) => (poly(1), poly(-1)))
+    weights = WFOMCWeights{fmpz_mpoly}("S" => (poly(1), poly(-1)))
     fill_missing_weights!(weights, ψ)
     @test compute_wfomc(ψ, 0, weights; algo) == 1
     @test compute_wfomc(ψ, 1, weights; algo) == 0
