@@ -1,3 +1,7 @@
+This branch contains code used for 
+
+```Jan Tóth and Ondřej Kuželka. Lifted Inference with Linear Order Axiom. AAAI 2023: 37th AAAI Conference on Artificial Intelligence, 2023 (To appear) [Preliminary version available at https://arxiv.org/abs/2211.01164].```
+
 # Fast WFOMC
 
 Implementation of FastWFOMC algorithm (https://ida.fel.cvut.cz/~kuzelka/pubs/van-bremen_535.pdf) in pure Julia.
