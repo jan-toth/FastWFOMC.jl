@@ -15,7 +15,7 @@ function process_sentences(file=ARGS[1])
     Threads.@threads for i in eachindex(lines)
         line = lines[i]
         startswith(line, '#') && continue
-        sentences[i] = get_cell_graph_unskolemized(line)
+        sentences[i] = get_condensed_cell_graph_unskolemized(line)
     end
 
     for sentence in sentences
