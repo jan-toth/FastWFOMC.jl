@@ -562,7 +562,7 @@ function _get_one_symbolic_cell_graph(φ::Formula, weights::WFOMCWeights; conden
                 loops[idx] = "L($name, $(cl.w |> _fmpq2string), $(cl.s |> _fmpq2string))"
             end
         end
-        edges = ["E($(cell_names[i]), $(cell_names[j]), $(cg.R[cliques[i].indices |> first, cliques[j].indices |> first] |> _fmpq2string))" for i in 1:length(cliques) for j in (i+1):length(cliques)]
+        edges = ["E($(cell_names[i]), $(cell_names[j]), $(cg.R[cliques[i].indices |> first, cliques[j].indices |> first] |> _fmpq2string)), E($(cell_names[j]), $(cell_names[i]), $(cg.R[cliques[i].indices |> first, cliques[j].indices |> first] |> _fmpq2string))" for i in 1:length(cliques) for j in (i+1):length(cliques)]
     else
         cells, R, w = cg
         cell_names = ['n' * "$(i)" for i in eachindex(cells)]
