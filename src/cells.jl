@@ -528,7 +528,7 @@ function _get_one_cell_graph(φ::Formula, weights::WFOMCWeights; condense=false)
         cell_names = ['n' * "$(i)" for i in eachindex(cells)]
 
         loops = ["L($name, $(wi), $(rii))" for (name, rii, wi) in zip(cell_names, R[CartesianIndex.(axes(R)...)], w)]
-        edges = ["E($(cell_names[i]), $(cell_names[j]), $(R[i, j]))" for i in 1:length(cells) for j in (i+1):length(cells)]
+        edges = ["E($(cell_names[i]), $(cell_names[j]), $(R[i, j])), E($(cell_names[j]), $(cell_names[i]), $(R[i, j]))" for i in 1:length(cells) for j in (i+1):length(cells)]
     end
 
     str = ""
@@ -568,7 +568,7 @@ function _get_one_symbolic_cell_graph(φ::Formula, weights::WFOMCWeights; conden
         cell_names = ['n' * "$(i)" for i in eachindex(cells)]
 
         loops = ["L($name, $(_fmpq2string(wi)), $(_fmpq2string(rii)))" for (name, rii, wi) in zip(cell_names, R[CartesianIndex.(axes(R)...)], w)]
-        edges = ["E($(cell_names[i]), $(cell_names[j]), $(_fmpq2string(R[i, j])))" for i in 1:length(cells) for j in (i+1):length(cells)]
+        edges = ["E($(cell_names[i]), $(cell_names[j]), $(_fmpq2string(R[i, j]))), E($(cell_names[j]), $(cell_names[i]), $(_fmpq2string(R[i, j])))" for i in 1:length(cells) for j in (i+1):length(cells)]
         # loops = ["L($name, $((rii)), $((wi)))" for (name, rii, wi) in zip(cell_names, R[CartesianIndex.(axes(R)...)], w)]
         # edges = ["E($(cell_names[i]), $(cell_names[j]), $((R[i, j])))" for i in 1:length(cells) for j in (i+1):length(cells)]
     end
