@@ -122,6 +122,14 @@ julia> fill_missing_weights!(w, three_regular)  # sets all missing weights to on
 julia>
 julia> # Compute WFOMC with cardinality constraints
 julia> compute_wfomc(three_regular, n, w; ccs=[cc]) // factorial(big(3))^n  # 3265920 / (3!)^6  = 70
+julia>
+julia>
+julia> compute_wfomc_unskolemized("V x ~E(x,x)", 10)
+1237940039285380274899124224//1
+julia> compute_wfomc_unskolemized("V x E=2 y E(x,y)", 10)
+34050628916015625//1
+julia> compute_wfomc_unskolemized("V x A(x,x) | ~B(x,x)", 2)
+144//1
 ```
 
 ### Executing scripts depending on FastWFOMC
