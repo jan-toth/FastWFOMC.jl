@@ -522,7 +522,7 @@ function _get_one_cell_graph(φ::Formula, weights::WFOMCWeights; condense=false)
             end
         end
 
-        edges = ["E($(cell_names[i]), $(cell_names[j]), $(cg.R[cliques[i].indices |> first, cliques[j].indices |> first]))" for i in 1:length(cliques) for j in (i+1):length(cliques)]
+        edges = ["E($(cell_names[i]), $(cell_names[j]), $(cg.R[cliques[i].indices |> first, cliques[j].indices |> first])), E($(cell_names[j]), $(cell_names[i]), $(cg.R[cliques[i].indices |> first, cliques[j].indices |> first]))" for i in 1:length(cliques) for j in (i+1):length(cliques)]
     else
         cells, R, w = cg
         cell_names = ['n' * "$(i)" for i in eachindex(cells)]
